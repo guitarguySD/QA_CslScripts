@@ -1,0 +1,3731 @@
+! CourtTalk Jury
+! CourtTalk Version 4.0
+! Clearview Jury Interface
+! Douglas County Oct 2022
+! 
+! 10/4/22 - dwg - Added Check Excuse Exempt
+! 11/29/22 - dwg - Qualification & BioInfo added
+! 01/04/23 - dwg - Douglas OnCall is not used. If OnCall in service week = Completed
+! 08/05/23 - dwg - into production
+! 08/06/23 - dwg - Removed student exemption
+! 08/21/23 - dwg - fixed recording
+! 08/25/23 - dwg - **** Changed OnCall msg to Service Ended per court request *******
+! 08/25/23 - dwg - Fixed excusal messages
+! 08/25/23 - dwg - modified CJ data definitions to CJT for the test/stage database
+! 09/15/23 - dwg - added telephone number capture
+! 10/30/23 - dwg - fix call in window issues
+! 11/09/23 - dwg - fix press # to hear again issue and Reporting date callin window issue
+! 03/06/24 - tb  - fixed CheckIsTodayReportingDate block; added "true", "false" to match output values
+! 03/06/24 - eb  - removed caregiver and full time student from request excusal menu and their blocks
+! 03/14/24 - dwg - Added isAfterFTACutoffTime js utility
+! 09/17/25 - eb  - Douglas clone to CSK
+! 03/27/26 - dwg - Update for new REST API block
+!
+!========================================
+!Setup
+!========================================
+[ScriptSetup]
+type=SetGlobals
+Language="English"
+MaxCallSec=9000
+MaxCallErrors=8
+OnMaxCallSec=HangupCall
+OnMaxCallErrors=HangupCall
+OnCallDisconnect=HangupCall
+OnScriptError=HangupCall
+AllowOnDisconnect=1
+LogTrace=1
+
+
+!========================================
+! Define Variables
+!========================================
+[DefineVariable]  
+type=DefineVars
+!Extension="5108916431@10.101.15.156"
+Extension="4024446221"
+!Extension=3103
+AssistanceAvailable=0
+DisqualPendingMessage="None"
+DOBMismatchCounter=0
+EnteredRecordPassword=""
+HoldResult=""
+HolidayToday=0
+HostAvailable=0
+IDRetryCounter=0
+NumberofDigits=0
+OperatorClosed=""
+OperatorOpen=""
+PhraseToRecord=""
+RecordPassword=""
+RecordPath="D:\Sonant\VoiceFiles\Douglas\Jury\Clearview\English\"
+RetryCounter=0
+ScreenMsg=""
+JuryTestMode=0
+TestPassword=""
+TimeoutRetryCounter=0
+TransferDialString=""
+VT_Result=0
+
+! Outbound Reminder Call Variables
+ApplicationCallType=""
+OutCall_CallingWindow=0
+OutCall_Result=0
+OutCall_ApplicationCallState=""
+OutCall_Disconnect=""
+OutCall_Reference=""
+OutCall_XML=""
+OutCall_DialString=""
+OutCall_ApplicationXML=""
+OutCall_ConnectType=""
+CallState=""
+FirstNameWithSpaces=""
+
+!ACD Variables
+ACD_AgentData=""	               !! Data sent to Agent Screen			
+ACD_AgentExtension=""	         !! Extension of agent to transfer call to from CheckCall routine		
+ACD_AgentName=""		         !! String with agent's name or extension	
+ACD_CallAge=""	               !! Time in sec. since call started		
+ACD_CallID=""		         !! 32-bit cardinal# assigned by ACD Var=ACD_Result		
+ACD_CallPriority=0		!!	
+ACD_CallState=0		         !! Current state of call		
+ACD_ConnectToAddress=0		!!
+ACD_ConnectType=0			!0= Use Dll to determine connected line state, 1=analog connected, 2=analog failed connect
+ACD_ConnectToName=0		!!
+ACD_ConnectedLineState=0	!!
+ACD_EstimatedHoldTimeMin=0
+ACD_PortState=0		         !! Defines who has control of current call		
+ACD_PositionInQueue=0            !! Number of calls ahead of current call
+ACD_Result=0			!! Result Code from any CCSACD.Dll routine
+ACD_RouteCode=0		         !! Denotes why call routed back to CCS		
+ACD_RouteName="Traffic"		         !! String with destination route name		
+ACD_TimeInQueue=0	               !! Time in sec.  Stops when call assigned	
+ACD_TransferFromAgentName=""	!! Agents name that is transferring a call
+ACD_ConnectedPortState=0		! ?
+ACD_ServerState=0				! ACD Server State 2=OK 6=Disabled
+ACD_AnswerTimeoutSec=30			! Returned from route call to acd
+ACD_DigitsAfterConnect=""		! ACD will dial these digits after connecting, but before opening the talk path.
+ACD_MusicOnHoldFile=""
+ACD_AgentCall=1
+ACD_WaitForAnswerMSec=25000
+ACD_WaitForPortMSec=30000
+ACD_InboundDestination=""
+ACD_OriginationAddress="7026713857"
+AgentTransfer=0
+AnswerLength=0
+AgentCall=0
+OpeningTime=""
+ClosingTime=""
+ConferenceConnectCode="&"
+ConferenceDisconnectCode="&"
+!ConferenceStartCode="&,*3"		! Use for Lab Testing
+ConferenceStartCode="&,"		! Use For Production
+CR_Dialed_Number=""
+CR_Result=0
+DialCode=""
+EndOfCycleCount=0
+OnHoldSequence=0 
+LineType="Analog"                
+QueueStatVariable=0
+ResultWas=""
+RouteRetry=0
+VAR_AssignedPort=0
+FromACD=0
+QueueFull="QueueFull"
+CallResetTimer=300
+TempLocation=""
+QuestionnaireError=""
+ReturnToQueue=0
+MusicFirstTime=0
+Mon_EventID=0
+Mon_EventParameter=0
+CCJ_Status=0
+CCJ_StatusFlag=0
+CallerPhoneNumber=""
+TempVar=""
+
+! MUSIC/AUDIOTEXT VARIABLES
+AudioText1="Silence"
+AudioText2="Silence"
+AudioText3="Silence"
+AudioText4="Silence"
+AudioText5="Silence"
+AudioText6="Silence"
+AudioTextSegment=""
+Music1="Music21"
+Music2="Music22"
+Music3="Music23"
+Music4="Music24"
+Music5="Music25"
+Music6="Music26"
+MusicSegment=""
+PlayInProgress=0
+
+! Agile Jury Variables
+CT_BioComplete=""
+CT_CaseID=""
+CT_City=""
+CT_DOB=""
+CT_EligibleToExcuse=""
+CT_EligibleToPostpone=""
+CT_ExcuseExemptRequestStatus=""
+CT_FirstInitial=""
+CT_FirstName=""
+CT_GroupID=""
+CT_IneligibleReason=""
+CT_JurorID=""
+CT_JurorState="UNKNOWN"
+CT_LastMileage=""
+CT_LastName=""
+CT_LastPaymentAmount=""
+CT_LastPaymentDate=""
+CT_LocationCode=""
+CT_LocationName=""
+CT_Middle=""
+CT_NameSuffix=""
+CT_NotificationConfirmation=""
+CT_NotificationType=""
+CT_PendingReview=0
+CT_PhoneNumber=""
+CT_PoolID=""
+CT_PostponementStatus=""
+CT_QualificationStatus=""
+CT_ReasonCode=""
+CT_ReasonType=""
+CT_ReasonDescription=""
+CT_ReportingAtAfter=""
+CT_ReportingStatus=""
+CT_ResultCode=""
+CT_ResultMessage=""
+CT_ScheduledDate=""
+CT_ScheduledTime=""
+CT_SelectedDate=""
+CT_ServiceEndDate=""
+CT_ServiceStartDate=""
+CT_State=""
+CT_Street1=""
+CT_Street2=""
+CT_Zipcode=""
+PostponeDate1=""
+PostponeDate2=""
+PostponeDate3=""
+CaptureJurorData=0	! If set to 1, the script will save the get juror info in an xml file
+FAQMessage=""
+CourtAddress=""
+CourtIntro=""
+EnteredJurorID=""
+inCallinWindow=0
+!inEveningCallinWindow=0
+isTodayReportingDate=0
+CallinStartTime=17
+CallinEndTime=10
+inReportingWeek=99
+isAfterFTACutoffTime=99
+FTACutoffTime=11
+TelephoneNumber="8584146660"
+CourtPhoneNumber="4024446221"
+CourtFaxNumber="4024441977"
+AJ_JurorID=""
+AJ_DOB=""
+CT_JurorIDFromRetrieval=""
+CT_DOBFromRetrieval=""
+CT_JuryTestMode=0
+ExcusalInfoMsg=""
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+
+! BioInfo and Qualification Question variables
+Q1Answer=""
+Q2Answer=""
+Q3Answer=""
+Q4Answer=""
+Q5Answer=""
+Q6Answer=""
+Q7Answer=""
+Q8Answer=""
+BQ1Answer=""
+BQ2Answer=""
+BQ3Answer=""
+BQ4Answer=""
+BQ5Answer=""
+BQ6Answer=""
+BQ7Answer=""
+BQ8Answer=""
+BQ9Answer=""
+BQ10Answer=""
+BQ11Answer=""
+BQ12Answer=""
+BQ13Answer=""
+BQ14Answer=""
+BQ15Answer=""
+BQ16Answer=""
+isBioInfoCollected=0
+
+EnterPhoneRetry=""
+DisqReason1=""
+DisqReason2=""
+DisqReason3=""
+DisqReason4=""
+DisqReason5=""
+DisqReason6GJ=""
+DisqReason6=""
+DisqReason7=""
+DisqReason8=""
+AnswerSum=0
+
+CJ_JurorID="" ! This is returned from Clearview Jury. For error checking purposes.
+
+
+! Check Excuse Exempt Disqualify
+CT_returnedJurorId=""
+CT_requestType=""
+CT_requestEligibility=""
+
+! Jury Config Variables
+
+AllowDeferrals = 1
+AllowDisqualifications = 1
+AllowExcusals=1
+FirstRetrieval=1
+FTAIsEligibleToDefer=0   ! This controls if FTA jurors can self process a deferral
+
+!========================================
+! Set System Defaults
+!========================================
+[BlockDefaults]
+Type=SetDefaults
+!DefaultWaitForMsg=0     	! False
+DefaultIgnoreMissingMsg=1    	! True
+DefaultFlushKeys=0     		! False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=StatE_Sorry
+DefaultTimeOutSec=5
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=StatE_Sorry
+DefaultLogCall=1     		! True
+DefaultLogMenu=1     		! True
+DefaultLogGetDigits=1     	! True
+DefaultLogPlay=1     		! True
+DefaultTerminator=""
+
+
+
+[LogInitialValues]
+type=log
+var=CT_JurorID,CT_LastName,CT_JurorState
+
+! CT_JurorState maintains the state of the juror and controls flow
+! in the script. 
+! 
+[SetJurorStateUNKNOWN] 
+type=changeVariable
+CT_JurorState="UNKNOWN"
+FirstRetrieval=1 
+
+[ResetEnglishLanguage]
+type=SetGlobals
+Language="English"
+
+[SetGlobalTestMode]
+type=log
+
+! Covid 19 change - no assistance is available
+[GetInitialVariables]
+type=VariableManager
+!VarList="AssistanceAvailable,HolidayToday,OperatorOpen,OperatorClosed,RecordPassword,PhraseToRecord,HostAvailable,TestPassword"
+VarList="Extension,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,CallinStartTime,CallinEndTime,CourtPhoneNumber,CourtFaxNumber"
+OnError=LogVMError1
+Next=SetOpeningClosingTimes
+
+[LogVMError1]
+type=log
+
+[SetInitialVariablesOnVMError]
+type=changeVariable
+AssistanceAvailable=0
+HolidayToday=0
+OperatorClosed="17:00:00"
+OperatorOpen="09:00:00"
+OpeningTime="09:00:00"
+ClosingTime="17:00:00"
+CallinStartTime="17" 	!This is for the nightly callin window
+CallinEndTime="10" 		!This is for the nightly callin window
+Next=StatE_CallStarts
+
+[SetOpeningClosingTimes]	! This is for ACD variables
+type=changeVariable
+OpeningTime=OperatorOpen
+ClosingTime=OperatorClosed
+Next=StatE_CallStarts
+
+[StatE_CallStarts]
+type=log
+logmsg="Call Starts"
+
+! Check if Javascript is running
+! 
+[PingJS]
+type=log
+Next=CheckJSStatusResult
+
+[LogPingJSError]
+type=log
+var=@Result,@ResultMessage
+Next=SetDBDown
+
+[CheckJSStatusResult]
+type=branch
+var=@Result
+0=SetDBUp
+Next=SetDBDown
+
+[SetDBUp]
+type=changevariable
+HostAvailable=1
+Next=CheckOfficeOpen
+
+[SetDBDown]
+type=changevariable
+HostAvailable=0
+HolidayToday=0		!Force Holiday to 0 = False, message not important if DB is down
+
+[PlayDBDown]
+type=play
+msg="DBDown"
+
+[CheckOfficeOpen]
+Type=Branch
+Var=AssistanceAvailable 
+0=StatE_OfficeClosed
+1=StatE_Officeopen			
+Next=StatE_Officeopen
+
+[StatE_OfficeOpen]
+Type=Log
+LogMsg="Office Open"
+Next=Greeting
+
+[StatE_OfficeClosed]
+Type=Log
+LogMsg="Office Closed"
+Next=Greeting
+
+!--------------------------------------------------
+! Page 5
+!--------------------------------------------------
+! We are not actually changing the language from English in this version.
+! This is here for compatability if a Spanish language version is created.
+!
+[Greeting]
+type=play
+Msg="GreetingEnglish"
+msg="Silence"
+msg="OptionalGreeting"
+WaitForMsg=False
+
+[LanguageMenu]
+Type=Menu
+Msg="LanguageMenuDTMF"
+OnKey1=StatE_English
+OnKey2=StatE_Spanish
+OnKeyStar=Exit
+OnKey3=StatE_English
+OnKey4=StatE_English
+OnKey5=StatE_English
+OnKey6=StatE_English
+OnKey7=StatE_English
+OnKey8=TransferPleaseHold
+OnKey9=StatE_English
+OnKey0=StatE_English
+!OnKeyPound=StatE_English
+OnKeyPound=StatE_Admin
+TimeoutSec=1
+MaxTimeouts=0
+TimeoutMsg="Silence"
+OnMaxTimeOuts=StatE_English
+OnMaxBadKeys=StatE_English
+
+[StatE_English]
+Type=Log
+LogMsg="English"
+
+[SetEnglish]
+type=setGlobals
+Language="English"
+Next=CheckHolidayToday
+
+!--------------------------------------------------
+! Page 6
+!--------------------------------------------------
+
+[StatE_Spanish]
+Type=Log
+LogMsg="Spanish caller"
+
+[SpanishSelected]   ! page 06
+Type=Log
+LogMsg="Spanish"
+
+[NonEnglishJuror]
+Type=play
+msg="NonEnglishJuror"
+
+[NonEnglishJurorMenu]
+type=menu
+msg="NonEnglishJurorMenu"
+OnKey1=CheckHolidayToday
+OnKey0=SetScreenMsgNonEnglishJuror
+OnKeyStar=NonEnglishJuror
+OnKeyPound=NonEnglishJurorMenu
+
+[SetScreenMsgNonEnglishJuror]
+type=changevariable
+ScreenMsg="NonEnglish Juror"
+Next=ACDAvailable
+
+[CheckHolidayToday]
+Type=Branch
+Var=HolidayToday
+0=CheckAssistanceAvailable			
+1=PlayHolidayToday
+Next=PlayHolidayToday
+
+[PlayHolidayToday]
+type=play
+msg="HolidayToday"
+
+[SetAssistanceAvailableFalse]
+type=ChangeVariable
+AssistanceAvailable=0
+
+[CheckAssistanceAvailable]
+Type=Branch
+Var=AssistanceAvailable
+0=PlayAssistanceUnavailable
+Next=GetJurorID
+
+[PlayAssistanceUnavailable]
+type=play
+!msg="AssistanceUnavailable"
+msg="Silence"
+Next=GetJurorID
+
+!--------------------------------------------------
+! Page 11
+!--------------------------------------------------
+[GetJurorID]
+type=log
+logmsg="GetJurorID"
+
+[StatE_GetJurorID]
+type=log
+logmsg="GetJurorID"
+
+[CheckJurorState] ! if the JurorID is UNKNOWN, get the juror ID, otherwise just get the record
+type=branch
+var=CT_JurorState
+"UNKNOWN"=GetJurorIDBlock
+""=GetJurorIDBlock
+Next=GetJurorRecord
+
+[GetJurorIDBlock]
+Type=Play
+Msg="EnterJurorID1"
+
+
+[SetJuryIDRetryCounter]
+Type=ChangeVariable
+IDRetryCounter=0
+
+[EnterJuryID]
+type=GetDigits
+Var=CT_JurorID
+CountVar=NumberOfDigits
+msg="EnterJuryID2"
+Terminator="#"
+MinDigits=0
+MaxDigits=13
+TimeoutSec=6
+MaxTimeouts=0
+OnKeyStar=EnterJuryID
+OnMaxTimeouts=CheckJuryIDLength
+Next=CheckJuryIDLength
+
+[CheckJuryIDLength]
+type=branch
+Var=NumberOfDigits
+0=IDUnknown
+1=NotEnoughDigitsID
+2=NotEnoughDigitsID
+3=ValidateJurorID	! for testing
+4=NotEnoughDigitsID
+5=NotEnoughDigitsID
+6=NotEnoughDigitsID
+7=NotEnoughDigitsID
+8=NotEnoughDigitsID
+9=ValidateJurorID
+Next=TooManyDigitsID
+
+[NotEnoughDigitsID]
+type=changevariable
+Increment=IDRetryCounter
+
+[CheckJuryIDRetriesTooShort]
+type=branch
+Var=IDRetryCounter
+3=IDProblem
+OnBelowRange=IDInsufficientDigits
+Next=IDProblem
+
+[IDInsufficientDigits]
+type=Play
+msg="InsufficientDigits"
+Next=PleaseReenter
+
+[TooManyDigitsID]
+type=changevariable
+Increment=IDRetryCounter
+
+[CheckJuryIDRetriesTooLong]
+type=branch
+Var=IDRetryCounter
+3=IDProblem
+OnBelowRange=IDTooLong
+Next=IDProblem
+
+[IDTooLong]
+type=Play
+msg="TooLong"
+
+[PleaseReenter]
+type=Play
+msg="PleaseReenter"
+Next=EnterJuryID
+
+[IDProblem]
+Type=ChangeVariable
+ScreenMsg="Problem Entering ID"
+Next=StatE_Sorry
+
+!--------------------------------------------------
+! Page 12 - ID Unknown 
+!--------------------------------------------------
+[IDUnknown]
+Type=ChangeVariable
+CT_JurorState="UNKNOWN"
+
+[WithoutID]
+type=Play
+msg="WithoutID"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Page 12 - Validate Juror ID
+!--------------------------------------------------
+[ValidateJurorID]
+type=Play
+msg="JuryIDEntered"
+MsgString=CT_JurorID%"|C"
+
+[SaveJurorID]
+type=changeVariable
+EnteredJurorID=CT_JurorID
+
+[LogEnteredJurorID]
+type=log
+var=EnteredJurorID
+
+[JuryIDMenu2]
+type=menu
+msg="JuryIDMenu"
+OnKey1=GetDOB
+OnKey2=CheckIDRetries
+OnKeyStar=ValidateJurorID
+
+[CheckIDRetries]
+Type=ChangeVariable
+increment=IDRetryCounter
+
+[CheckIDRetries2]
+type=branch
+Var=IDRetryCounter
+3=IDProblem
+OnBelowRange=EnterJuryID
+OnAboveRange=IDProblem
+Next=EnterJuryID
+
+!--------------------------------------------------
+! Get DOB
+!--------------------------------------------------
+[GetDOB]
+type=log
+
+[ResetVarsForDOB]
+type=changeVariable
+RetryCounter=3
+
+[PlayGetDOB]
+type=play
+msg="EnterDOB"
+
+[GetDOBValue]
+type=GetDigits
+Var=CT_DOB
+CountVar=NumberOfDigits
+Terminator="#"
+MinDigits=0
+MaxDigits=8
+TimeoutSec=6
+MaxTimeouts=0
+OnKeyStar=PlayGetDOB
+OnMaxTimeouts=CheckDOBLength
+Next=CheckDOBLength
+
+[CheckDOBLength]
+type=branch
+var=NumberOfDigits
+8=RetrieveRecord
+OnAboveRange=ReenterDOB
+OnBelowRange=ReenterDOB
+Next=StatE_SystemError
+
+[ReenterDOB]
+type=play
+msg="ReenterDOB"
+
+[DecrementDOBCounter]
+type=changeVariable
+Decrement=RetryCounter
+
+[CheckDOBRetryCounter]
+type=branch
+var=RetryCounter
+0=StatE_Sorry
+Next=GetDOBValue
+
+!--------------------------------------------------
+! Page 18
+!--------------------------------------------------
+[RetrieveRecord]
+Type=Log
+logmsg=CT_JurorId
+
+[ResetVarsForRetrieveRecord]
+type=changeVariable
+RetryCounter=0
+
+[PlayRetrieveRecord]
+type=Play
+msg="PleaseHoldRetrieveRecord"
+Next=LogGetJurorInfoInput
+
+[GetJurorRecord]	! This entry point is for refreshing the juror record
+type=log
+logmsg="Refresh Juror Record"
+
+[LogGetJurorInfoInput]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+
+[GetJurorInfo]
+type=log
+
+[LogGetJurorInfo]
+type=log
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+
+[LogGetJurorInfo2]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+Next=CheckRetrieveResult
+
+[LogJsError]
+type=log
+var=@Result,@ResultMessage
+
+[LogJSErrorMsg]
+type=log
+var=@Result,@ResultMessage
+Next=StatE_Sorry
+
+[SetRecordNotFound]
+type=changeVariable
+CT_ResultCode=9
+
+!--------------------------------------------------
+! Page 14 - Check Retrieve Result
+!--------------------------------------------------
+[CheckRetrieveResult]
+type=branch
+var=CT_ResultCode
+0=StatE_RecordFound
+1=StatE_DOBMismatch
+2=StatE_DOBMismatch
+9=StatE_RecordNotFound
+Next=StatE_JSError
+
+[StatE_JSError]
+type=log
+logmsg="Retrieve Error"
+
+[LogRetrieveError]
+type=log
+var=CT_ResultCode,CT_ResultMessage
+
+[PlayJsError]
+type=play
+msg="ProblemWithDatabase"
+
+[SetDBDownFromRetrieval]
+type=changeVariable
+HostAvailable=0
+Next=JurorMenu
+
+!------------------------------
+! Record Found
+!------------------------------
+[StatE_RecordFound]
+type=Log
+logmsg="Record found"
+
+! Known issue, Clearview doesn't always set BioInfoComplete=true
+! So when the script refreshes their record, it comes back as false when it's true
+! If they completed Bio info in this call, set BioComplete = true
+[CheckBioInfoCollected]
+type=branch
+var=isBioInfoCollected
+1=ResetBioInfoComplete
+Next=CheckJurorIDReturned
+
+[ResetBioInfoComplete]
+type=changeVariable
+CT_BioComplete=1
+
+!-------------------------------------------------------------------------------
+! This section is a workaround 3/31/16. Sometimes wrong juror info is returned from Clientcall
+! CVP Javascript problem
+!-------------------------------------------------------------------------------
+[CheckJurorIDReturned]
+type=branch
+var=CT_JurorIDFromRetrieval
+CT_JurorID=LogLocationInfo    ! On to normal execution. The juror ID entered matches the one retrieved from the database.
+Next=LogJurorIDMismatchError
+
+[LogJurorIDMismatchError]
+type=log
+var=retryCounter,CT_JurorID,CT_JurorIDFromRetrieval
+
+[IncrementRetryCounter]
+type=changeVariable
+increment=retryCounter
+
+[BriefPause]
+type=pause
+PauseSec=1
+
+[BranchOnRetryCounter]
+type=branch
+var=retryCounter
+3=SetScreenMsgErrorRetrievingRecord
+OnBelowRange=GetJurorInfo
+OnAboveRange=SetScreenMsgErrorRetrievingRecord
+
+[SetScreenMsgErrorRetrievingRecord]
+type=changeVariable
+ScreenMsg="IVR Error: Can't retrieve record"
+Next=StatE_SystemError
+
+!-----------------------------------------------
+! End of Patch
+!-----------------------------------------------
+
+
+[LogLocationInfo]
+type=log
+var=CT_JurorID,CT_JurorState,CT_LocationCode,CT_LocationName,CT_ScheduledDate,CT_ScheduledTime
+
+[SetLocationPlayVariables]
+type=ChangeVariable
+CourtAddress="CourtAddress"%CT_LocationCode
+CourtIntro="CourtIntro"%CT_LocationCode
+
+[CheckSaveJurorData]
+type=branch
+var=CaptureJurorData
+1=SaveJurorData
+Next=CheckIfFirstRetrival
+
+[SaveJurorData]
+Type=XML
+Command=EncodeVarList
+Format=Document
+VarList="CT_FirstName,CT_FirstInitial,CT_LastName,CT_Middle,CT_NameSuffix,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_LocationName,CT_Street1,CT_Street2,CT_City,CT_State,CT_Zipcode,CT_ServiceStartDate,CT_ServiceEndDate,CT_LastPaymentAmount,CT_LastPaymentDate,CT_LastMileage,CT_BioComplete,CT_ResultCode,CT_ResultMessage"
+FileName=CT_JurorID
+
+! If this is the first retrieval, verify name. If it's a record refresh, skip that.
+[CheckIfFirstRetrival] 
+type=branch
+var=FirstRetrieval
+0=CallerDisposition
+Next=SetFirstRetrievalFalse
+
+[SetFirstRetrievalFalse]
+type=changeVariable
+FirstRetrieval = 0
+
+!----------------------------------
+! Get Postponement Eligible
+!----------------------------------
+[GetPostponementRequest]
+type=branch
+var=CT_JurorState
+"Available"=CheckPendingReview
+"Pool"=CheckPendingReview
+"Qualified"=CheckPendingReview
+"FTA Responded"=CheckPendingReview
+"FTA Non Responded"=CheckPendingReview
+"FTA"=CheckPendingReview
+Next=SetPostponementIneligible
+
+
+[CheckPendingReview]
+type=branch
+var=CT_PendingReview
+1=SetAllOptionsIneligible
+0=GetPostponementEligibility
+
+[SetAllOptionsIneligible]
+type=changeVariable
+CT_EligibleToPostpone=0
+CT_EligibleToExcuse=0
+AllowDeferrals = 0
+AllowDisqualifications = 0
+AllowExcusals=0
+!Next=VerifyName
+Next=CheckInReportingWeek
+
+[GetPostponementEligibility]
+type=log
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+
+[BranchOnJuryTestModePostponements]
+type=branch
+var=JuryTestMode
+0=GetPostponementEligibilityAJ
+1=SetTestModePostponement
+Next=GetPostponementEligibilityAJ
+
+[SetTestModePostponement]
+type=changeVariable
+CT_EligibleToPostpone=1
+PostponeDate1="06/10/2016"
+PostponeDate2="06/17/2016"
+PostponeDate3="06/24/2016"
+CT_ResultCode=0
+CT_ResultMessage=""
+Next=CheckPostponementRequestResult
+
+[GetPostponementEligibilityAJ]
+type=log
+Next=CheckPostponementRequestResult
+
+[LogJsErrorPPReq]
+type=log
+var=@Result,@ResultMessage
+Next=SetPostponementIneligible
+
+[CheckPostponementRequestResult]
+type=log
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+
+[ExtraLog2]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+
+[CheckPostponementRequestResultAJ]
+type=branch
+var=CT_ResultCode
+0=LogPPResultCode
+Next=SetPostponementIneligible ! If not 0, ineligible
+
+[LogPPResultCode]
+type=log
+var=CT_ResultCode,CT_ResultMessage
+
+[CheckSaveJurorData_PPRequest]
+type=branch
+var=CaptureJurorData
+1=SaveJurorData_PPRequest
+Next=LogPostponementData
+
+[SaveJurorData_PPRequest]
+Type=XML
+Command=EncodeVarList
+Format=Document
+VarList="CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode,CT_ResultMessage"
+FileName=CT_JurorID%"_PostponeData"
+Next=LogPostponementData
+
+[LogPostponementData]
+type=log
+var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode
+
+[CheckPostponeDates]
+type=branch
+var=PostponeDate1
+""=SetPostponementIneligible
+!Next=CheckInReportingWeek
+Next=CheckExcuseEligibility
+!-------------------------------------------
+! Set postponement Ineligible
+! 
+[SetPostponementIneligible]
+type=changeVariable
+CT_EligibleToPostpone=0
+
+[LogPostponementIneligible]
+type=log
+!Next=VerifyName
+!Next=CheckInReportingWeek
+Next=CheckExcuseEligibility
+
+!--------------------------------------------
+! Check Excuse Exemp tDisqualify eligibility
+! 
+[CheckExcuseEligibility]
+type=log
+
+[SetRequestType]
+type=changeVariable
+CT_RequestType="Excuse"
+
+[GetExcuseEligibilityAJ]
+type=log
+Next=LogExcuseInfoResult
+
+[LogJsErrorExcuseInfo]
+type=log
+var=@Result,@ResultMessage
+Next=SetExcusalIneligible
+
+[LogExcuseInfoResult]
+type=log
+var=CT_JurorID,CT_ReturnedJurorID,CT_EligibleToExcuse,CT_RequestType,CT_ResultCode,CT_ResultMessage
+
+[CheckExcuseInfoResult]
+type=branch
+var=CT_ResultCode
+0=CheckInReportingWeek		! Continue
+Next=SetExcusalIneligible 	! If not 0, ineligible
+
+
+!----------------------------
+! Set Eligible to Excuse false
+[SetExcusalIneligible]
+type=changeVariable
+CT_EligibleToExcuse=0
+
+[LogExcusalIneligible]
+type=log
+Next=CheckInReportingWeek
+
+!--------------------------------------------------
+! Check in Reporting Week
+! True from Sunday at 5PM through Friday at 5PM
+!--------------------------------------------------
+[CheckInReportingWeek]
+type=log
+
+[CheckScheduledDateValid]
+type=branch
+var=CT_ScheduledDate
+""=SkipCallinWindow
+
+! Returns inReportingWeek and isReportingDate
+[ExecuteCalulateInReportingWeek]
+type=log
+
+[LogInReportingWeek]
+type=log
+var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
+!Next=CheckCallinWindow
+Next=CheckIfAfterFTACutoffTime
+
+[LogJsErrorInReportingWeek]
+type=log
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
+Next=SkipCallinWindow
+
+!--------------------------------------------------
+! Check if after FTA Cutoff time
+!--------------------------------------------------
+[CheckIfAfterFTACutoffTime]
+type=log
+var=FTACutoffTime
+
+[ExecuteFTACutoff] 
+type=log
+
+[LogFTACutoff]
+type=log
+var=isAfterFTACutoffTime
+Next=CheckCallinWindow
+
+[LogJsErrorFTACutoff]
+type=log
+var=CT_ResultCode,CT_ResultMessage
+Next=SkipCallinWindow
+
+!--------------------------------------------------
+! Check Callin Window
+! CallinWindow is true from 5PM before their scheduled reporting date to 11AM on their reporting date
+!--------------------------------------------------
+[CheckCallinWindow]
+type=log
+var=CT_ScheduledDate
+
+[CheckScheduledDate] ! If the scheduled date is blank, skip checking the callin window
+type=branch
+var=CT_ScheduledDate
+""=SkipCallinWindow
+
+[ExtraLog3]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+
+[ExecuteCallInWindow] 
+type=log
+
+[LogCallinWindow]
+type=log
+var=CT_JurorID, CT_ScheduledDate, inCallinWindow
+
+[ExtraLog4]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+Next=VerifyName
+
+[LogJsErrorCallinWindow]
+type=log
+var=CT_JurorID,CT_ScheduledDate,inCallinWindow
+
+[SkipCallinWindow]
+type=changeVariable
+inCallinWindow=0
+inReportingWeek=0
+isAfterFTACutoffTime=0
+Next=VerifyName
+
+!--------------------------------------------------
+! DOB Mismatch
+!--------------------------------------------------
+[StatE_DOBMismatch]
+type=log
+
+[IncrementDOBCounter]
+type=changeVariable
+Increment=DOBMismatchCounter
+
+[CheckDOBMismatchCounter]
+type=branch
+var=DOBMismatchCounter
+3=StatE_Sorry
+OnAboveRange=StatE_Sorry
+
+[DOBMismatch]
+type=menu
+msg="DOBMismatch"
+msgString=CT_DOB%"|D|ddd mmm dd yyyy"
+msg="DOBMismatchMenu"
+OnKey1=GetDOB
+OnKey2=GetJurorID
+OnKey0=SetScreenMsgDOBMismatch
+OnKeyStar=DOBMismatch
+
+
+[SetScreenMsgDOBMismatch]
+type=changeVariable
+ScreenMsg="Requested Agent: DOB Mismatch"
+Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Page 15
+!--------------------------------------------------
+[StatE_RecordNotFound]
+type=log
+logmsg="Record Not Found"
+
+[RecordNotFound]
+Type=Menu
+Msg="RecordNotFound"
+MsgString=CT_JurorID%"|C"
+Msg="RecordNotFoundMenu"
+OnKey1=GetJurorID
+OnKey9=Exit
+OnKey0=SetScreenMsgRecordNotFound
+OnKeyStar=RecordNotFound
+
+
+[SetScreenMsgRecordNotFound]
+type=changeVariable
+ScreenMsg="Requested Agent: DOB Mismatch"
+Next=ACDAvailable
+
+!--------------------------------------------------
+! Page 16 - Verify Name
+!--------------------------------------------------
+[VerifyName]
+type=log
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+
+[VerifyNamePlay]
+type=play
+msg="VerifyName"
+msgString=CT_LastName
+
+[VerifyNameMenu]
+type=menu
+msg="VerifyNameMenu"
+onKey1=CallerDisposition
+OnKey2=RevalidateJurorID
+OnKeyStar=VerifyName
+
+!--------------------------------------------------
+! Page 16 - Revalidate Juror ID
+!--------------------------------------------------
+[RevalidateJurorID]
+type=log
+logmsg="Revalidate juror ID"
+
+[PlayRevalidation]
+type=play
+msg="JurorPartNumberIs"
+MsgString=CT_JurorID%"|C"
+
+[RevalidationMenu]
+type=menu
+msg="RevalidateMenu"
+OnKey1=SetScreenMsgReEnterJurorID
+OnKey2=ResetForGetJurorID
+
+[SetScreenMsgReEnterJurorID]
+type=changeVariable
+ScreenMsg="Requested Agent: Re-Enter JurorID"
+Next=ACDAvailable
+
+[ResetForGetJurorID]
+type=changeVariable
+FirstRetrieval=1
+CT_JurorState="UNKNOWN"
+Next=GetJurorID
+
+!--------------------------------------------------
+! Page 20
+!--------------------------------------------------
+[CallerDisposition]
+type=log
+var=CT_JurorID,CT_JurorState
+
+[CheckPendingReviewFlag]
+type=branch
+var=CT_PendingReview
+1=PlayPendingReviewMsg
+Next=SetDisposition
+
+[PlayPendingReviewMsg]
+type=play
+msg="PendingReview"
+
+[SetDisposition]
+type=branch
+Var=CT_JurorState
+""=StatE_StateError
+"UNKNOWN"=SetUnknownOptions
+"Alternate"=Serving
+"Juror"=Serving
+"Available"=StatE_StateError
+"Exempt"=Excused
+"Excused"=Excused
+"Permanent Excused"=Excused
+"Panel"=Serving
+"Pool"=Pool
+!"Pool"=CheckReportingStatus	! This is evaluated to PoolOnCall or PoolReport
+!"PoolOnCall"=OnCallInfo
+!"PoolReport"=RequiredToReportInfo
+!"Qualified"=Qualified
+"Qualified"=CheckReportingStatus   ! This is evaluated to QualifiedOnCall or QualifiedReport
+"QualifiedOnCall"=OnCallInfo
+"QualifiedReport"=RequiredToReportInfo
+"Disqualified"=Disqualified
+"Permanent Disqualified"=Disqualified
+"Completed"=ServiceEnded
+"Undeliverable"=StatE_StateError
+"Postponed"=Postponed
+"FTA Responded"=FTA
+"FTA Non Responded"=FTA
+"FTA"=FTA
+"OSC Issued"=StatE_StateError
+Next=StatE_StateError
+
+[CheckReportingStatus]
+type=branch
+var=CT_ReportingStatus
+"Report"=UpdateCT_JurorStatusReport
+"Reporting"=UpdateCT_JurorStatusReport
+"On Call"=UpdateCT_JurorStatusOnCall
+Next=UpdateCT_JurorStatusReport
+
+[UpdateCT_JurorStatusReport]
+type=changeVariable
+CT_JurorState=CT_JurorState%"Report"
+Next=SetDisposition
+
+[UpdateCT_JurorStatusOnCall]
+type=changeVariable
+CT_JurorState=CT_JurorState%"OnCall"
+Next=SetDisposition
+
+!--------------------------------------------------
+! Page 21 - FTA
+!--------------------------------------------------
+[FTA]
+type=play
+msg="FailedToAppear"
+WaitForMsg=true
+
+[CheckIfFTAEligibleToDefer]
+type=branch
+var=FTAIsEligibleToDefer   ! This is a configuration variable
+0=FTASpeakToAgent
+Next=FTADeferral
+
+[FTASpeakToAgent]
+type=play
+msg="FTASpeakWithAgent"
+WaitForMsg=true
+Next=SetScreenMsgFTA
+
+[SetScreenMsgFTA]
+type=changeVariable
+ScreenMsg="Requested Agent: FTA"
+Next=ACDAvailable
+
+[FTADeferral]
+type=branch
+var=CT_EligibleToPostpone
+0=SetScreenMsgFTADeferral
+1=OpportunityToReschedule
+OnAboveRange=OpportunityToReschedule
+
+[SetScreenMsgFTADeferral]
+type=changeVariable
+ScreenMsg="Requested Agent: FTA Deferral"
+Next=ACDAvailable
+
+
+[OpportunityToReschedule]
+type=play
+msg="OpportunityToReschedule"
+Next=StatE_RequestDeferral
+
+!--------------------------------------------------
+! Serving
+!--------------------------------------------------
+[Serving]
+type=play
+msg="Serving"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Page 23 - Excused
+!--------------------------------------------------
+[Excused]
+type=play
+msg="Excused"
+Next=JurorMenu
+
+![ExcusedMenu]
+!type=Menu
+!msg="ExcusedMenu"
+!Onkey0=SetScreenMsgExcused
+!OnKey8=JurorMenu
+!OnKey9=Exit
+!OnKeyStar=Excused
+!OnKeyPound=ExcusedMenu
+
+
+![SetScreenMsgExcused]
+!type=changeVariable
+!ScreenMsg="Requested Agent: FTA Deferral"
+!Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Disqualified
+!--------------------------------------------------
+
+[Disqualified]
+type=play
+msg="Disqualified"
+Next=JurorMenu
+
+! [DisqualifiedMenu]
+! type=Menu
+! msg="DisqualifiedMenu"
+! Onkey0=SetScreenMsgDisqualified
+! OnKey8=JurorMenu
+! OnKey9=Exit
+! OnKeyStar=Disqualified
+! OnKeyPound=DisqualifiedMenu
+
+! [SetScreenMsgDisqualified]
+! type=changeVariable
+! ScreenMsg="Requested Agent: Disqualified"
+! Next=ACDAvailable
+
+!--------------------------------------------------
+! Postponed
+!--------------------------------------------------
+
+[Postponed]
+type=play
+msg="DeferralGranted1"
+msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
+msg="DeferralGranted2"
+!msg="DeferralGranted"
+Next=JurorMenu
+
+! [DeferredMenu]
+! type=Menu
+! msg="DeferralGrantedMenu.vox"
+! Onkey0=SetScreenMsgDeferred
+! OnKey8=JurorMenu
+! OnKey9=Exit
+! OnKeyStar=Deferred
+! OnKeyPound=DeferredMenu
+
+! [SetScreenMsgDeferred]
+! type=changeVariable
+! ScreenMsg="Requested Agent: Deferred"
+! Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Service Ended
+!--------------------------------------------------
+
+[ServiceEnded]
+type=play
+msg="ServiceEnded"
+!msg="ToHearAgain"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Pool
+!--------------------------------------------------
+[Pool]
+type=log
+logmsg="Pool"
+!Next=GenericReportingInfo
+
+[PoolCheckBioInfo]
+type=branch
+var=CT_BioComplete
+0=U_PlayNeedToCompleteBio	! Start of BioInfo then Qualify
+Next=QualifyStart	! Qualify questions only
+
+[U_PlayNeedToCompleteBio]
+type=play
+msg="NeedToCompleteBioInfo"
+msg="FairAndBalancedJuries"
+Next=GetBioInfo
+
+!--------------------------------------------------
+! Page 26 - Summoned
+!--------------------------------------------------
+[Summoned]
+type=log
+logmsg="Summoned"
+Next=GenericReportingInfo
+
+
+!--------------------------------------------------
+! Qualified - This is a stub because of On Call and Report juror status
+!--------------------------------------------------
+[Qualified]
+type=log
+logmsg="Qualified"
+
+[CheckBioInfoCompleted]
+type=branch
+var=CT_BioComplete
+0=PlayNeedToCompleteBioInfo
+Next=GenericReportingInfo
+
+[PlayNeedToCompleteBioInfo]
+type=play
+msg="NeedToCompleteBioInfo"
+msg="FairAndBalancedJuries"
+Next=GetBioInfo
+!Next=GenericReportingInfo
+
+!--------------------------------------------------
+! Page  - Required To Report
+!--------------------------------------------------
+[RequiredToReportInfo]
+type=log
+
+[InReportingWeekCheck]
+type=branch
+var=inReportingWeek
+1=CheckCallinWindowReporting	! Juror is calling during their reporting week
+0=GenericReportingInfo		! Juror is calling in advance of their reporting week
+"-1"=ReportingWeekPast		! Juror is calling after their reporting week
+
+[ReportingWeekPast]
+type=play
+msg="ReportingDatePast"
+Next=ACDAvailable
+
+[CheckCallinWindowReporting]
+type=branch
+var=inCallinWindow
+1=PlayRequiredToReport
+0=CheckIsTodayReportingDate
+
+! If NOT in callin Window, check if Today is ReportingDate but they are calling in late
+[CheckIsTodayReportingDate]
+type=Branch
+var=isTodayReportingDate
+"true"=CheckIfPastFTACutoff
+"false"=CallbackTonightAfter5
+0=CallbackTonightAfter5
+1=CheckIfPastFTACutoff
+Next=GenericReportingInfo
+
+
+! Today is their reporting date. They are calling before FTA Cutoff Time, 11AM
+[CheckIfPastFTACutoff]
+type=branch
+var=isAfterFTACutoffTime
+1=PlayFTAMessage
+0=PlayReportAnyway
+
+[PlayReportAnyway]
+type=Play
+msg="ReportAnyway1"
+msgstring=CT_ScheduledTime%"|D|h:n a/p"
+msg="ReportAnyway2"
+Next=PlayRequiredToReport
+
+[PlayFTAMessage]
+type=Play
+msg="LateCallin"
+Next=JurorMenu
+
+[PlayRequiredToReport]
+type=play
+msg="RequiredToReportTo"
+msg=CourtAddress
+msg="On"
+msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
+msg="At"
+msgstring=CT_ScheduledTime%"|D|h:n a/p"
+msg="ToHearAgain"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Page  - On Call
+!--------------------------------------------------
+[OnCallInfo]
+type=log
+
+[InReportingWeekCheck2]
+type=branch
+var=inReportingWeek
+1=CheckCallinWindowOnCall
+0=GenericReportingInfo
+
+[CheckCallinWindowOnCall]
+type=branch
+var=inCallinWindow
+0=CallbackTonightAfter5
+1=OnCallIsServiceEnded
+
+! This is a completely non-standard use of the OnCall status for Douglas County only! 
+! For Douglas, OnCall is Service Ended
+[OnCallIsServiceEnded]
+type=play
+msg="ServiceEnded"
+msg="ToHearAgain"
+
+[DouglasSpecial]
+type=changeVariable
+CT_JurorState="Completed"
+Next=JurorMenu
+
+! This is the standard code for OnCall, not used here
+![InReportingWeekCheck2]
+!type=branch
+!var=inReportingWeek
+!1=CheckCallinWindowOnCall
+!0=GenericReportingInfo
+
+![CheckCallinWindowOnCall]
+!type=branch
+!var=inCallinWindow
+!0=GenericReportingInfo
+!1=PlayCurrentlyOnCall
+
+![PlayCurrentlyOnCall]
+!type=play
+!msg="CurrentlyOnCall"
+!msg="OnCallCallback"
+!msg="ToHearAgain"
+
+
+!----------------------------------
+! Callback after 5PM tonight
+!----------------------------------
+[CallbackTonightAfter5]
+type=Play
+msg="CurrentlyScheduledOn"
+msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
+msg="CallbackAfter5"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Generic Reporting Info
+!--------------------------------------------------
+[GenericReportingInfo]
+type=play
+msg="CurrentlyScheduled"
+msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
+msg="BeSureToCall"
+msg="ToHearAgain"
+Next=JurorMenu
+
+!=============================================================
+! Bio questions and Eligibility verification
+! 
+[GetBioInfo]
+type=log
+
+[SetBioRetryCounter]
+type=changeVariable
+Retrycounter=0
+
+[U_PlayIntro]
+type=play
+!msg="EligibilityIntro"
+!msg="UnqualifiedIntro"
+msg="BioIntro"
+
+!-----------------------------------------------
+! Check Origination Address & adjust if needed
+!-----------------------------------------------
+[U_SetPhoneRetry]
+Type=ChangeVariable
+EnterPhoneRetry=0
+TempVar=@OriginationAddress
+
+! Check Origination Address length & adjust
+[CheckPhoneLength1]
+Type=Branch
+Var=TempVar
+900000000000=RemoveTwoDigits
+OnAboveRange=RemoveTwoDigits
+
+[CheckPhoneLength2]
+type=branch
+Var=TempVar
+10000000000=RemoveFirstDigit
+OnAboveRange=RemoveFirstDigit
+
+[CheckPhoneLength3]
+type=branch
+Var=TempVar
+1000000000=UseOriginationAddress
+OnAboveRange=UseOriginationAddress
+OnBelowRange=U_GetBioInfoPhone ! Give up, just get phone number
+
+[RemoveFirstDigit]
+type=CopyString
+string=@OriginationAddress
+var=TempVar
+Start=2
+Count=10
+LogBlock=true
+Next=U_BioInfoPhone
+
+[RemoveTwoDigits]
+type=CopyString
+string=@OriginationAddress
+var=TempVar
+Start=3
+Count=10
+LogBlock=true
+Next=U_BioInfoPhone
+
+[UseOriginationAddress]
+Type=ChangeVariable
+TempVar=@OriginationAddress
+Next=U_BioInfoPhone
+
+
+[U_BioInfoPhone]
+type=play
+msg="TelephoneNumberIs"
+msgstring=TempVar
+
+[U_BioInfoPhoneMenu]
+type=menu
+msg="UseThisNumber"
+msg="TelephoneMenu"
+OnKey1=U_UseThisNumber
+OnKey2=U_GetBioInfoPhone
+OnKeyPound=U_BioInfoPhoneMenu
+
+[U_UseThisNumber] ! Use the origination address, skip getBioPhone
+type=changeVariable
+BQ5Answer=TempVar
+Next=U_GetGenderMenu
+
+[U_GetBioInfoPhone]
+Type=GetDigits
+Var=BQ5Answer
+CountVar=NumberOfDigits
+Msg="BioPhone"
+Terminator="#"
+MinDigits=10
+MaxDigits=11
+OnMaxTimeouts=StatE_Sorry
+OnKeyStar=U_GetBioInfoPhone
+Timeoutmsg="InsufficientDigits"  
+Next=U_CheckPhoneInput
+
+[U_CheckPhoneInput]
+type=branch
+Var=EnterPhoneRetry
+3=U_ProblemEnteringPhone
+OnBelowRange=U_CheckPhoneInput2
+OnAboveRange=U_ProblemEnteringPhone
+Next=U_CheckPhoneInput2
+
+[U_ProblemEnteringPhone]
+Type=ChangeVariable
+ScreenMsg="Problem Entering Phone Number"
+Next=StatE_Sorry
+
+[U_CheckPhoneInput2]
+type=branch
+Var=NumberOfDigits
+10=U_GetGenderMenu
+OnBelowRange=U_NotEnoughDigitsPhone
+OnAboveRange=U_TooManyDigitsPhone
+Next=U_TooManyDigitsPhone
+
+! Too short
+[U_NotEnoughDigitsPhone]
+type=changevariable
+Increment=EnterPhoneRetry
+
+[U_PhoneInsufficientDigits]
+type=Play
+msg="InsufficientDigits"
+Next=U_GetBioInfoPhone
+
+! Too long
+[U_TooManyDigitsPhone]
+type=changevariable
+Increment=EnterPhoneRetry
+
+[U_PhoneTooLong]
+type=Play
+msg="TooLong"
+Next=U_GetBioInfoPhone
+
+!--------------------------------
+! Get Gender
+!--------------------------------
+[U_GetGenderMenu]
+Type=Menu
+Msg="BioGenderMenu"
+OnKey1=U_SetGenderToMale
+OnKey2=U_SetGenderToFemale
+OnKey3=U_SetGenderNotSpecified
+OnKeyStar=U_GetGenderMenu
+OnKeyPound=U_GetGenderMenu
+
+[U_SetGenderToMale]
+Type=ChangeVariable
+BQ1Answer="Male"
+Next=U_GetRaceMenu
+
+[U_SetGenderToFemale]
+Type=ChangeVariable
+BQ1Answer="Female"
+Next=U_GetRaceMenu
+
+[U_SetGenderNotSpecified]
+type=ChangeVariable
+BQ1Answer=" "
+Next=U_GetRaceMenu
+
+!---------------------------------
+! Spouse Summoned
+!---------------------------------
+[U_SpouseSummonedMenu]
+Type=Menu
+Msg="BioSpouseSummonedMenu"
+OnKey1=U_SetSpouseSummonedYes
+OnKey2=U_SetSpouseSummonedNo
+OnKey3=U_SetSpouseNotSpecified
+OnKeyStar=U_SpouseSummonedMenu
+OnKeyPound=U_GetRaceMenu
+
+[U_SetSpouseSummonedNo]
+Type=ChangeVariable
+BQ7Answer="No"
+Next=U_GetRaceMenu
+
+[U_SetSpouseSummonedYes]
+Type=ChangeVariable
+BQ7Answer="Yes"
+Next=U_GetRaceMenu
+!Next=U_SpecialAccomodationsMenu
+
+[U_SetSpouseNotSpecified]
+type=changeVariable
+BQ7Answer=" "
+Next=U_GetRaceMenu
+
+!---------------------------------
+! Special Accomodations
+!---------------------------------
+![U_SpecialAccomodationsMenu]
+!Type=Menu
+!Msg="BioSpecialAccomodationsMenu"
+!OnKey1=U_SetSpecialAccomodationsYes
+!OnKey2=U_SetSpecialAccomodationsNo
+!OnKeyStar=U_SpouseSummonedMenu
+!OnKeyPound=U_SpecialAccomodationsMenu
+
+![U_SetSpecialAccomodationsYes]
+!Type=ChangeVariable
+!BQ1Answer="No"
+!Next=U_GetRaceMenu
+
+[U_SetSpecialAccomodationsNo]
+Type=ChangeVariable
+BQ1Answer="Yes"
+Next=U_GetRaceMenu
+
+!---------------------------------
+! Get Race
+!---------------------------------
+!I - Asian
+!J - Black/African American
+!K - Native American/Native Alaskan
+!L - Hawaiian/Pacific Islander
+!M - White/Caucasian
+!N - Other Race
+
+[U_GetRaceMenu]
+Type=Menu
+Msg="BioRaceMenu"
+OnKey1=U_SetRaceToBlack
+OnKey2=U_SetRaceToNativeAmerican
+OnKey3=U_SetRaceToAsian
+OnKey4=U_SetRaceToHawaiian
+OnKey5=U_SetRaceToWhite
+OnKey6=U_SetRaceToOther
+OnKey7=U_SetRaceNotSpecified
+OnKeyStar=U_GetRaceMenu
+OnKeyPound=U_GetRaceMenu
+
+[U_SetRaceToAsian]
+Type=ChangeVariable
+BQ10Answer="E"		! Asian
+Next=U_LogBioAnswers
+
+[U_SetRaceToBlack]
+Type=ChangeVariable
+BQ10Answer="A"		! African American
+Next=U_LogBioAnswers
+
+[U_SetRaceToNativeAmerican]
+Type=ChangeVariable
+BQ10Answer="D"		! Native American
+Next=U_LogBioAnswers
+
+[U_SetRaceToHawaiian]
+Type=ChangeVariable
+BQ10Answer="C"		! Hawaiian
+Next=U_LogBioAnswers
+
+[U_SetRaceToWhite]
+Type=ChangeVariable
+BQ10Answer="B"		! Caucasion/White
+Next=U_LogBioAnswers
+
+[U_SetRaceToOther]
+Type=ChangeVariable
+BQ10Answer="F"		! Other
+Next=U_LogBioAnswers
+
+[U_SetRaceNotSpecified]
+Type=ChangeVariable
+BQ10Answer=" "		! Not specified
+Next=U_LogBioAnswers
+
+!---------------------------------
+! Get Ethnicity
+!---------------------------------
+[U_GetEthnicityMenu]
+type=menu
+Msg="BioEthnicityMenu"
+OnKey1=U_SetEthnicityToHispanic
+OnKey2=U_SetEthnicityToNonHispanic
+OnKey3=U_SetEthnicityNotSpecified
+OnKeyStar=U_GetEthnicityMenu
+OnKeyPound=U_GetEthnicityMenu
+
+[U_SetEthnicityToHispanic]
+Type=ChangeVariable
+BQ13Answer="H"
+Next=U_LogBioAnswers
+
+[U_SetEthnicityToNonHispanic]
+type=changevariable
+BQ13Answer="B"
+Next=U_LogBioAnswers
+
+[U_SetEthnicityNotSpecified]
+type=changevariable
+BQ13Answer=" "
+Next=U_LogBioAnswers
+!------------------------------
+! Submit BioInfo Answers
+!------------------------------
+
+[U_LogBioAnswers]
+type=log
+var=CT_JurorID,BQ1Answer,BQ2Answer,BQ3Answer,BQ4Answer,BQ5Answer,BQ6Answer,BQ7Answer,BQ8Answer,BQ9Answer,BQ10Answer,BQ11Answer,BQ12Answer,BQ13Answer
+
+[LogBioInfoInput] 
+type=log
+var=CT_JurorID,CT_DOB
+
+[U_ExecuteUpdateBioInfo]
+type=log
+Next=LogBioInfoOutput
+
+[U_LogJsErrorBInfo]
+type=log
+var=@Result,@ResultMessage
+Next=StatE_SystemError
+
+[LogBioInfoOutput]
+type=log
+var=CT_JurorID,CT_DOB
+
+[U_CheckBioInfoResult]
+type=branch
+var=CT_ResultCode
+0=U_CheckBioFormCompletionStatus
+Next=StatE_SystemError
+
+[U_CheckBioFormCompletionStatus]
+type=branch
+var=CT_BioComplete
+"Bio Completed"=U_BioCompleted
+"Pending Review"=U_BioPendingReview
+Next=U_LogBioCompletionError
+
+[U_LogBioCompletionError]
+type=log
+logmsg="CT_BioComplete not set to permitted value = "%CT_BioComplete
+Next=StatE_SystemError
+
+[U_BioPendingReview]
+type=log
+Next=CompletedBioQuestions
+
+
+[U_BioCompleted]
+type=log
+
+[SetBioInfoCollected]
+type=changeVariable
+isBioInfoCollected=1
+Next=CompletedBioQuestions
+
+[CompletedBioQuestions]
+type=branch
+var=CT_JurorState
+"QUALIFIED"=U_QualifiedComplete
+"POOL"=U_HalfwayDone
+Next=U_HalfwayDone
+
+[U_QualifiedComplete]
+type=play
+msg="UThanks"
+Next=GenericReportingInfo
+
+[U_HalfwayDone]
+type=play
+msg="HalfwayDone"
+
+!=================================================
+! Qualification Questionnaire
+!=================================================
+[QualifyStart]
+Type=log
+Next=U_CitizenshipMenu
+
+[UnqualifiedInterviewRetry]
+type=log
+
+! Citizenship
+[U_CitizenshipMenu]
+type=menu
+msg="CitizenshipMenu"
+OnKey1=U_SetCitizen
+OnKey2=U_SetNotACitizen
+
+[U_SetCitizen]
+type=changeVariable
+Q1Answer="1"
+Next=U_ResidencyMenu
+
+[U_SetNotACitizen]
+type=changeVariable
+Q1Answer="0"
+DisqReason1="DisqualNonCitizen"
+Increment=AnswerSum
+Next=U_ResidencyMenu
+
+!=================================================
+! Residency Menu
+! 
+[U_ResidencyMenu]
+type=menu
+msg="ResidencyMenu"
+OnKey1=U_SetResident
+OnKey2=U_SetNotResident
+
+[U_SetResident]
+type=changeVariable
+Q2Answer="1"
+Next=U_EnglishMenu
+
+[U_SetNotResident]
+type=changeVariable
+Q2Answer="0"
+DisqReason2="DisqualNonResident"
+Increment=AnswerSum
+Next=U_EnglishMenu
+
+! English
+!=================================================
+! English Disqual 
+! 
+[U_EnglishMenu]
+type=menu
+msg="EnglishMenu"
+OnKey1=U_SetEnglish 
+OnKey2=U_SetNonEnglish
+
+[U_SetEnglish]
+type=changeVariable
+Q3Answer="1"
+Next=U_AgeMenu
+
+[U_SetNonEnglish]
+type=changeVariable
+Q3Answer="0"
+DisqReason3="DisqualEnglish"
+Increment=AnswerSum
+Next=U_AgeMenu
+
+! 19 years or older
+!=================================================
+! Age Disqual 
+! 
+[U_AgeMenu]
+type=menu
+msg="AgeMenu"
+OnKey1=U_SetOver18 
+OnKey2=U_SetUnder18
+
+[U_SetOver18]
+type=changeVariable
+Q4Answer=1
+Next=U_JudgeMenu
+
+[U_SetUnder18]
+type=changeVariable
+Q4Answer=0
+DisqReason4="DisqualAge"
+Increment=AnswerSum
+DisqualPendingMessage="UAgeInfo"
+Next=U_JudgeMenu
+
+!=================================================
+! Judge
+! 
+[U_JudgeMenu]
+type=menu
+msg="JudgeMenu"
+OnKey1=U_SetJudge
+OnKey2=U_SetNotJudge
+OnKeyStar=U_JudgeMenu
+
+[U_SetJudge]
+type=changeVariable
+Q5Answer="1"
+DisqReason5="DisqualJudge"
+Increment=AnswerSum
+Next=U_SheriffMenu
+
+[U_SetNotJudge]
+type=changeVariable
+Q5Answer="0"
+Next=U_SheriffMenu
+
+!=================================================
+! Sheriff
+! 
+[U_SheriffMenu]
+type=menu
+msg="SheriffMenu"
+OnKey1=U_SetSheriff
+OnKey2=U_SetNotSheriff
+OnKeyStar=U_SheriffMenu
+
+[U_SetSheriff]
+type=changeVariable
+Q6Answer="1"
+DisqReason6="DisqualSheriff"
+Increment=AnswerSum
+Next=U_CurrentCaseMenu
+
+[U_SetNotSheriff]
+type=changeVariable
+Q6Answer="0"
+Next=U_CurrentCaseMenu
+
+!=================================================
+! Current Case before the court
+! 
+[U_CurrentCaseMenu]
+type=menu
+msg="PartyToCaseMenu"
+OnKey1=U_SetCurrentCase
+OnKey2=U_SetNotCurrentCase
+OnKeyStar=U_CurrentCaseMenu
+
+[U_SetCurrentCase]
+type=changeVariable
+Q7Answer="1"
+DisqReason7="DisqualParty"
+Increment=AnswerSum
+Next=U_FelonyMenu
+
+[U_SetNotCurrentCase]
+type=changeVariable
+Q7Answer="0"
+Next=U_FelonyMenu
+
+!=================================================
+! Felony menu
+!=================================================
+[U_FelonyMenu]
+type=menu
+msg="FelonyMenu"
+OnKey1=U_SetFelon
+OnKey2=U_SetNotAFelon
+
+[U_SetNotAFelon]
+type=changeVariable
+Q8Answer="0"
+Next=U_SubmitQualificationResponses
+
+[U_SetFelon]
+type=changeVariable
+Q8Answer="1"
+DisqReason5="DisqualFelon"
+Increment=AnswerSum
+DisqualPendingMessage="UFelonInfo"
+Next=U_SubmitQualificationResponses
+
+!======================================
+! Submit Qualification Responses
+! 
+[U_SubmitQualificationResponses]
+type=log
+
+[CheckAnswerSum]
+type=Branch
+var=AnswerSum
+!0=U_ExecuteProcessQualification
+0=DisqualificationConfirmation
+OnAboveRange=PlayDisqualificationConfirmation
+
+[PlayDisqualificationConfirmation]
+type=play
+msg="MayNotBeQualified"
+msg=DisqReason1
+msg=DisqReason2
+msg=DisqReason3
+msg=DisqReason4
+msg=DisqReason5
+msg=DisqReason6
+msg=DisqReason7
+msg=DisqReason8
+
+[DisqualificationConfirmation]
+type=menu
+Msg="PerjuryMenuDTMF"
+OnKey1=LogQualInput
+OnKey2=SendBackToInterview
+OnKeyStar=DisqualificationConfirmation
+OnKeyPound=PlayDisqualificationConfirmation
+
+[LogQualInput]
+type=log
+!var=JurorID,DisqReason1,DisqReason2,DisqReason3,DisqReason4,DisqReason5,DisqReason6GJ,DisqReason6,DisqReason7,DisqReason8
+
+[U_ExecuteProcessQualification]
+type=log
+Next=LogQualOutput
+
+[LogJsErrorPQ]
+type=log
+var=@Result,@ResultMessage
+Next=StatE_SystemError
+
+[LogQualOutput]
+type=log
+var=CT_JurorID,CT_DOB
+
+[CheckExecPQResult]
+type=branch
+var=CT_ResultCode
+0=U_CheckQualificationStatus
+
+[LogPQProblem]
+type=log
+logmsg="Execute Process Qualification Failed"
+var=CT_ResultCode,CT_ResultMessage
+Next=StatE_SystemError
+
+[U_CheckQualificationStatus]
+type=branch
+var=CT_QualificationStatus
+"Qualified"=U_CompletedQualified
+"Disqualified"=U_CompletedDisqualified
+"Pending Review"=U_CompletedDisqualPendingReview
+Next=StatE_SystemError
+
+!--------------------------------
+! Completed Questionnaire, Qualfied
+! 
+[U_CompletedQualified]
+type=play
+WaitForMsg=true
+msg="ThanksQualified"
+!msg="UBeSureToCall1"
+!msgString=CourtPhoneNumber
+!msg="UBeSureToCall2"
+msg="PleaseHoldRecordRefresh"
+Next=GetJurorRecord
+
+!-----------------------------------
+! Completed Questionnaire, Disqualified
+! 
+[U_CompletedDisqualified]
+type=play
+msg="UThanks"
+msg="PleaseHoldRecordRefresh"
+WaitForMsg=true
+Next=GetJurorRecord
+
+!----------------------------------------
+! Completed Questionnaire, pending review of disqual request
+! 
+[U_CompletedDisqualPendingReview]
+type=play
+WaitForMsg=true
+msg="DisqualRequestReceived"
+
+[U_CheckDisqualPendingMessage]
+type=Branch
+var=DisqualPendingMessage
+"None"=GetJurorRecord
+
+[U_DisqualPendingMessage]
+type=menu
+msg=DisqualPendingMessage
+msg="DisqualPendingMenu"
+OnKeyStar=U_CompletedDisqualPendingReview
+OnKey1=GetJurorRecord
+OnKey9=Exit
+OnKey0=SetScreenMsgForDisqualPending
+Next=GetJurorRecord
+
+
+[SetScreenMsgForDisqualPending]
+type=ChangeVariable
+ScreenMsg="Requested Agent: Disqual Pending"
+Next=ACDAvailable
+
+!----------------------------------------------
+! Reset Qualification interview
+
+[SendBackToInterview]
+type=changeVariable
+increment=RetryCounter
+
+[CheckInterviewRetry]
+type=branch
+var=RetryCounter
+2=UnableCompleteRegistration
+
+[PlayTakeYouBack]
+type=play
+msg="BackThruInterview"
+
+[ResetInterviewAnswers]
+type=changeVariable
+Q1Answer=""
+Q2Answer=""
+Q3Answer=""
+Q4Answer=""
+Q5Answer=""
+Q6Answer=""
+Q7Answer=""
+Q8Answer=""
+AnswerSum=0
+DisqReason1=""
+DisqReason2=""
+DisqReason3=""
+DisqReason4=""
+DisqReason5=""
+DisqReason6=""
+DisqReason7=""
+DisqReason8=""
+DisqualPendingMessage="None"
+Next=UnqualifiedInterviewRetry
+
+[UnableCompleteRegistration]
+type=log
+
+[PlaySorryUnableComplete]
+type=play
+msg="Sorry"
+Next=ACDAvailable
+
+! 
+! End Eligibility & Bio Info Questionnaire
+!=========================================================
+
+
+!=========================================================
+! Page 29 - Juror Menu
+!--------------------------------------------------
+[JurorMenu]
+type=branch
+var=CT_JurorState
+"UNKNOWN"=SetUnknownOptions
+"Alternate"=SetServingOptions
+"Available"=SetPoolOptions
+"Disqualified"=SetServiceEndedOptions
+"Excused"=SetServiceEndedOptions
+"Exempt"=SetServiceEndedOptions
+"Juror"=SetServingOptions
+"Panel"=SetServingOptions
+"Pool"=SetPoolOptions
+"PoolReport"=SetPoolOptions
+"PoolOnCall"=SetPoolOptions
+"Qualified"=SetQualifiedOptions
+"QualifiedOnCall"=SetQualifiedOptions
+"QualifiedReport"=SetQualifiedOptions
+"Completed"=SetServiceEndedOptions
+"Undeliverable"=SetScreenJurorMenuError
+"Postponed"=SetServiceEndedOptions
+"Responded FTA"=FTA
+"Non-Responded FTA"=FTA
+"FTA"=FTA
+"OSC Issued"=SetScreenJurorMenuError
+Next=SetScreenJurorMenuError
+
+
+[SetScreenJurorMenuError]
+type=changeVariable
+ScreenMsg="Transfer: JurorStatus="%CT_JurorState
+Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Juror Menu Options
+! 
+! 1 - Deferrals
+! 2 - FAQs (Always Available)
+! 3 - Request an Excusal
+! 4 - Payment info
+! 5 - Work Cert
+! 6 - Enter juror ID
+! 9 - Main Menu
+! 0 - Assistance
+! # - Hear message again
+! * - Hear options again
+!--------------------------------------------------
+
+!-----------------------------------------------
+! Menu options for each STATE.
+! 
+[SetUnknownOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 1
+Next=CheckGlobalDeferrals
+
+[SetCompletedOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+Next=CheckGlobalDeferrals
+
+[SetPoolOptions]
+type=changeVariable
+@PlayOption1 = CT_EligibleToPostpone
+@PlayOption2 = 1
+@PlayOption3 = 1
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+Next=CheckGlobalDeferrals
+
+[SetSummonedOptions]
+type=changeVariable
+@PlayOption1 = CT_EligibleToPostpone
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+Next=CheckGlobalDeferrals
+
+[SetQualifiedOptions]
+type=changeVariable
+@PlayOption1 = CT_EligibleToPostpone
+@PlayOption2 = 1     
+!@PlayOption3 = CT_EligibleToExcuse
+@PlayOption3 = 1		! For testing
+@PlayOption4 = 0     ! 
+@PlayOption5 = 0     ! 
+@PlayOption6 = 0     ! 
+Next=CheckGlobalDeferrals
+
+
+[SetServingOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 1
+@PlayOption5 = 0
+@PlayOption6 = 0
+Next=JurorMenuBlock
+
+
+[SetServiceEndedOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0 
+@PlayOption4 = 1 
+@PlayOption5 = 0
+@PlayOption6 = 0 
+Next=JurorMenuBlock
+
+
+!--------------------------------------------------
+! If AllowDeferrals is False, turn off Deferrals
+! 
+[CheckGlobalDeferrals]
+type=branch
+var=AllowDeferrals
+0=SetNoDeferrals
+Next=CheckGlobalDisqualifications
+
+[SetNoDeferrals]
+type=ChangeVariable
+@PlayOption1=0
+
+!---------------------------------------------------------------
+! If AllowDisqualifications is False, turn off Disqualifications
+! 
+[CheckGlobalDisqualifications]
+type=branch
+var=AllowDisqualifications
+0=SetNoDisqualifications
+Next=JurorMenuBlock
+
+[SetNoDisqualifications]
+type=changeVariable
+@PlayOption3 = 0
+
+!---------------------------------------------------------------
+! If AllowExcusals is False, turn off Disqualifications
+! 
+[CheckGlobalExcusals]
+type=branch
+var=AllowExcusals
+0=SetNoExcusals
+Next=JurorMenuBlock
+
+[SetNoExcusals]
+type=changeVariable
+@PlayOption3 = 0
+Next=JurorMenuBlock
+
+!--------------------------------------------------
+! Page 30 - Juror Menu Block
+!--------------------------------------------------
+[JurorMenuBlock] 
+type=Recognize
+PromptMsg="Silence"
+PromptMsgDTMF="ToHearAgain","JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
+OnKey1=StatE_RequestDeferral
+OnKey2=StatE_FAQs
+OnKey3=StatE_RequestExcusals
+OnKey4=StatE_PaymentInfo
+OnKey5=StatE_WorkCertificate
+OnKey6=GetJurorID
+OnKey9=Exit
+OnKey0=SetScreenJurorMenuBlock
+OnKeyStar=JurorMenu
+OnKeyPound=CallerDisposition
+FlushKeys=1
+MaxRetryCount=3
+OnMaxRetries=StatE_Sorry
+ShiftToDTMFMsg="ShiftToDTMF"
+OnDTMFError=StatE_Sorry
+OnOtherResult=StatE_Sorry
+BadKeyMsg="InvalidSelectionDTMF"        
+!TimeoutMsg="Timeout"
+TimeoutMsgDTMF="TimeoutDTMF"
+SuccessMsg="SuccessMsg"
+Next=StatE_Sorry
+
+
+[SetScreenJurorMenuBlock]
+type=changeVariable
+ScreenMsg="Transfer: JurorStatus="%CT_JurorState
+Next=ACDAvailable
+
+!--------------------------------------------------
+! Page 31
+!--------------------------------------------------
+[StatE_RequestDeferral]
+type=log
+logmsg="Deferral Request"
+
+[CheckEligibility]
+type=branch
+var=CT_EligibleToPostpone
+0=NotEligibleToDefer
+Next=SelectDate
+
+[SetCountersForRequestDeferral]
+type=ChangeVariable
+RetryCounter=2
+TimeoutRetryCounter=0
+
+!--------------------------------------------------
+! Page - Not Eligible to Defer
+!--------------------------------------------------
+[NotEligibleToDefer]
+type=log
+logmsg="Not Eligible to Defer"
+
+[PlayNotEligibleMsg]
+type=play
+msg="NotEligibleToDefer"
+
+[NotEligibleToDeferMenu]
+type=menu
+msg="NotEligibleToDeferMenu"
+OnKey8=CallerDisposition
+OnKey0=SetScreenMsgForNotEligibleToDefer
+OnKeyStar=NotEligibleToDeferMenu
+OnKeyPound=PlayNotEligibleMsg
+
+[SetScreenMsgForNotEligibleToDefer]
+Type=ChangeVariable
+ScreenMsg="Requested Agent: NOT ELIGIBLE TO DEFER"
+Next=ACDAvailable
+
+!--------------------------------------------------
+! Select Postponement Date
+!--------------------------------------------------
+[SelectDate]
+type=menu
+msg="PostponeSelect"
+msg="For"
+msgstring=postponeDate1%"|D|ddd mmm dd yyyy"
+msg="Press1"
+msg="For"
+msgstring=postponeDate2%"|D|ddd mmm dd yyyy"
+msg="Press2"
+msg="For"
+msgstring=postponeDate3%"|D|ddd mmm dd yyyy"
+msg="Press3"
+msg="HearAgainDTMF"
+msg="SpeakWithAgent"
+OnKey1=SetPostponeDate1
+OnKey2=SetPostponeDate2
+OnKey3=SetPostponeDate3
+OnKey0=SetScreenMsgPostponement
+OnKeyStar=SelectDate
+
+[SetPostponeDate1]
+type=changeVariable
+CT_SelectedDate=PostponeDate1
+Next=PostponementConfirmation
+
+[SetPostponeDate2]
+type=changeVariable
+CT_SelectedDate=PostponeDate2
+Next=PostponementConfirmation
+
+[SetPostponeDate3]
+type=changeVariable
+CT_SelectedDate=PostponeDate3
+Next=PostponementConfirmation
+
+
+[SetScreenMsgPostponement]
+type=changeVariable
+ScreenMsg="Transfer: Postponement"
+Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Page 32
+!--------------------------------------------------
+[PostponementConfirmation]
+type=log
+var=CT_JurorID,CT_SelectedDate
+
+
+[ExtraLog5]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+
+[ExecutePostponementConfirmation]
+type=log
+Next=ExtraLog6
+
+[LogJsErrorPPConf]
+type=Log
+LogMsg="JSError in Postponement Confirmation"
+Next=StatE_SystemError
+
+
+[ExtraLog6]
+type=log
+var=CT_JurorID,CT_DOB,CT_Lastname
+
+[CheckPostponementConfResult]
+type=branch
+var=CT_ResultCode
+0=StatE_SuccessfulDeferral
+Next=StatE_DeferralNotGranted
+
+[StatE_SuccessfulDeferral]
+type=log
+logmsg="Deferral Succesful"
+
+[PlayDeferralMessage]
+type=play
+msg="DeferralGranted1"
+msgstring=CT_SelectedDate%"|D|ddd mmm dd yyyy"
+msg="DeferralGranted2"
+
+[DeferralGrantedMenu]
+type=menu
+msg="DeferralGrantedMenu"
+OnKey9=Exit
+OnKey0=SetScreenMsgDeferralGranted
+OnKeyStar=PlayDeferralMessage
+
+
+[SetScreenMsgDeferralGranted]
+type=changeVariable
+ScreenMsg="Transfer: Deferral Granted"
+Next=ACDAvailable
+
+
+!-----------------------------------------------
+! Deferral Not Granted
+!-----------------------------------------------
+[StatE_DeferralNotGranted]
+type=log
+logmsg="Deferral Not Granted"
+Next=StatE_SystemError
+
+
+!--------------------------------------------------
+! Request Exemption
+!--------------------------------------------------
+[StatE_RequestExcusals]
+type=log
+logmsg="Exemptions"
+
+[RequestExcusalMenu]
+type=menu
+!msg="RequestExemption"
+msg="OtherDisqualificationsMenu"
+OnKey1=Over65
+OnKey2=Over65Permanent
+OnKey3=QualifiedOver65
+OnKey4=NursingMother
+OnKey5=ActiveMilitary
+OnKey6=AlreadyServed
+OnKey9=JurorMenu
+OnKey0=SetScreenMsgForExcusals
+OnKeyStar=RequestExcusalMenu
+OnKeyPound=RequestExcusalMenu
+
+
+[SetScreenMsgForExcusals]
+type=ChangeVariable
+ScreenMsg="EXCUSAL: Requested Agent"
+Next=ACDAvailable
+
+!-------------------------
+[Over65]
+type=log
+logmsg="Excusal Request: Over 65"
+
+[SetCodeOver65]
+type=ChangeVariable
+CT_ReasonCode="O"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseAge"
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+Next=ProcessExcusalRequest
+
+!-------------------------
+[Over65Permanent]
+type=log
+logmsg="Excusal Request: Over 65 Permanent"
+
+[SetCodeOver65Permanent]
+type=ChangeVariable
+CT_ReasonCode="OP"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseAge"
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+Next=ProcessExcusalRequest
+
+!-------------------------
+[QualifiedOver65]
+type=play
+msg="QualifiedOver65"
+Next=CallerDisposition
+
+!-------------------------
+[NursingMother]
+type=log
+logmsg="Excusal Request: Nursing Mother"
+
+[SetCodeNursingMother]
+type=ChangeVariable
+CT_ReasonCode="N"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseNursingMother"
+ExcusalInfoMsg2="NursingMotherInfo1"
+ExcusalInfoMsg3="NursingMotherInfo2"
+Next=ProcessExcusalRequest
+
+!-------------------------
+[ActiveMilitary]
+type=log
+logmsg="Excusal Request: Active Military"
+
+[SetCodeActiveMilitary]
+type=ChangeVariable
+CT_ReasonCode="M"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseActiveMilitary"
+ExcusalInfoMsg2="MilitaryInfo1"
+ExcusalInfoMsg3="MilitaryInfo2"
+Next=ProcessExcusalRequest
+
+!-------------------------
+[AlreadyServed]
+type=log
+logmsg="Excusal Request: Already Served"
+
+[SetCodeAlreadyServed]
+type=ChangeVariable
+CT_ReasonCode="W5"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseServingJuror"
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+Next=ProcessExcusalRequest
+
+!-------------------------
+[Felony]
+type=log
+logmsg="Excusal Request: Felony"
+
+[SetCodeFelony]
+type=ChangeVariable
+CT_ReasonCode="F"
+CT_ReasonType="Excuse"
+ExcusalInfoMsg="ExcuseFelony"
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+Next=ProcessExcusalRequest
+
+!--------------------------------------------------
+! Pg.  - Process Excusal Request
+!--------------------------------------------------
+[ProcessExcusalRequest]
+type=log
+
+[CheckExtendedInfo]
+type=branch
+var=ExcusalInfoMsg2
+""=PlayExcuseVerify
+Next=PlayBasicExcuseMsg
+
+[PlayExcuseVerify]
+type=play
+msg=ExcusalInfoMsg
+msg=ExcusalInfoMsg2
+msgstring=CourtFaxNumber%"|C"
+msg=ExcusalInfoMsg3
+Next=ExcusalPerjuryMenu
+
+[PlayBasicExcuseMsg]
+type=play
+msg=ExcusalInfoMsg
+Next=ExcusalPerjuryMenu
+
+[ExcusalPerjuryMenu]
+type=menu
+msg="PerjuryMenuDTMF"
+OnKey1=LogExcusalInput
+OnKey2=CancelExcusal
+Onkey3=CancelExcusalMainMenu
+OnKey0=ACDAvailable
+
+[CancelExcusal]
+type=changeVariable
+ExcusalInfoMsg=""
+ExcusalInfoMsg2=""
+CT_ReasonCode=""
+CT_ReasonType=""
+Next=RequestExcusalMenu
+
+[CancelExcusalMainMenu]
+type=changeVariable
+ExcusalInfoMsg=""
+ExcusalInfoMsg2=""
+ExcusalInfoMsg3=""
+CT_ReasonCode=""
+CT_ReasonType=""
+Next=JurorMenu
+
+! Process the Excusal request
+[LogExcusalInput]
+type=log
+!var=CT_JurorID,CT_DOB,CT_TypeCode,CT_ReasonCode
+
+[ExecuteProcessExcusal]
+type=log
+
+[LogExcusalOutput]
+type=log
+var=CT_JurorID,CT_DOB
+
+[LogProcessExcusalOutput]
+type=log
+var=CT_JurorID,CT_EligibleToExcuse,CT_IneligibleReason,CT_ExcuseExemptRequestStatus,CT_ResultCode,CT_ResultMessage
+Next=CheckExcusalResult
+
+[LogJsErrorExcusal]	! Exit on Javascript error
+type=log
+var=@Result,@ResultMessage
+Next=StatE_SystemError
+
+[CheckExcusalResult]	! Check process errors
+type=branch
+var=CT_ResultCode
+0=CheckExcusalRequestStatus
+Next=LogExcusalResult
+
+[LogExcusalResult]
+type=log
+var=CT_ResultCode,CT_ResultMessage
+Next=StatE_SystemError
+
+[CheckExcusalRequestStatus]	! Check Request Status
+type=branch
+var=CT_ExcuseExemptRequestStatus
+"Approved"=GetJurorRecord
+"Pending Review"=ExcusalPendingReview
+"Ineligible"=ExcusalIneligible
+
+[SetScreenMsgForExcusalProblem]
+type=ChangeVariable
+ScreenMsg="Excusal: Problem Updating DB"
+
+[PlayExcusalProblem]
+type=play
+msg="ErrorProcessingExcusal"
+Next=ACDAvailable
+
+[ExcusalIneligible]
+type=menu
+msg="TooCloseRequestExemptionMenu.vox"
+OnKey1=GetJurorRecord
+OnKey9=Exit
+OnKeyStar=ExcusalIneligible
+OnKey0=SetScreenMsgForExcusalIneligible
+
+
+[SetScreenMsgForExcusalIneligible]
+type=ChangeVariable
+ScreenMsg="Excusal: Excusal Ineligible"
+Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Excusal Pending Review
+!--------------------------------------------------
+[ExcusalPendingReview]
+type=log
+
+[DisablePostponements]
+type=changeVariable
+CT_EligibleToPostpone=0
+CT_EligibleToExcuse=0
+AllowDeferrals = 0
+AllowDisqualifications = 0
+AllowExcusals=0
+
+[PlayExcusalPendingMsg]
+type=play
+msg="ExcusalPending"
+
+[BranchOnInfo]
+type=branch
+var=ExcusalInfoMsg3
+""=PlayPendingInfo
+Next=PlayPendingInfoTwoPart
+
+[PlayPendingInfo]
+type=play
+msg=ExcusalInfoMsg2	! This is a variable play
+Next=ExcusalPendingMenu
+
+[PlayPendingInfoTwoPart]
+type=play
+msg=ExcusalInfoMsg2
+msgString=CourtFaxNumber
+msg=ExcusalInfoMsg3
+Next=ExcusalPendingMenu
+
+[ExcusalPendingMenu]
+type=Menu
+msg="DisqualPendingMenu"
+OnKey1=GetJurorRecord
+OnKey9=Exit
+OnKeyStar=PlayExcusalPendingMsg
+OnKey0=StatE_Transfer
+
+!--------------------------------------------------
+! Page 37 - Payment Info
+!--------------------------------------------------
+
+[StatE_PaymentInfo]
+type=log
+logmsg="Payment Info"
+
+
+[CheckPaymentInformation]
+type=branch
+var=CT_lastPaymentDate
+""=NoPaymentInitiated
+0=NoPaymentInitiated
+Next=ReturnPaymentInfo
+
+[LogPaymentInfoResult]
+type=log
+logmsg="GetPaymentInformation Result = "%CT_ResultCode
+
+[NoPaymentInitiated]
+type=play
+msg="PaymentNotAuthorized"
+Next=PaymentInfoMenu
+
+[ReturnPaymentInfo]
+type=play
+msg="PaymentAuthorized"
+msgstring=CT_LastPaymentDate%"|D|ddd mmm dd yyyy"
+msg="ReceiveCheck"
+
+[PaymentInfoMenu]
+type=menu
+msg="PaymentinfoMenu"
+OnKey1=JurorMenu
+OnKey0=SetScreenMsgForPaymentInfo
+OnKeyStar=CheckPaymentInformation
+OnKeyPound=PaymentInfoMenu
+
+
+[SetScreenMsgForPaymentInfo]
+type=ChangeVariable
+ScreenMsg="Requested Agent: Payment Info"
+Next=ACDAvailable
+
+!--------------------------------------------------
+! Work Certificate
+!--------------------------------------------------
+[StatE_WorkCertificate]
+type=log
+logmsg="Work Cert"
+
+[PlayWorkCertInfo]
+type=play
+msg="WorkCertificateInfo"
+
+[WorkCertMenu]
+type=menu
+msg="WorkCertMenu"
+OnKey1=SetScreenMsgForWorkCert
+OnKeyStar=PlayWorkCertInfo
+OnKey9=Exit
+OnKey0=SetScreenMsgForWorkCert
+
+[SetScreenMsgForWorkCert]
+type=changeVariable
+ScreenMsg="Work Certificate"
+Next=ACDAvailable
+
+
+!--------------------------------------------------
+! Page 38 - Sorry & System Error
+!--------------------------------------------------
+
+[StatE_Sorry]
+type=log
+logmsg="Too Many Errors"
+
+[PlaySorry]
+type=play
+msg="WeAreSorry"
+Next=ACDAvailable
+
+[StatE_SystemError]
+type=log
+logmsg="System Error"
+
+[PlaySystemError]
+type=play
+WaitForMsg=true
+msg="SystemProblem"
+Next=ACDAvailable
+
+[StatE_StateError]
+type=log
+logmsg="STATE Error"
+
+[PlaySTATEError]
+type=play
+msg="ProblemWithRecord"
+Next=ACDAvailable
+
+[StatE_ACDError]
+type=log
+logmsg="GN_ACD Error"
+Next=EndCallError
+
+[EndCallError]	
+type=play
+msg="EndCall"
+Next=HangupCall
+
+!--------------------------------------------------
+! Transfer
+!--------------------------------------------------
+[StatE_Transfer]
+Type=Log
+LogMsg="Transfer"
+
+[CheckAssistanceAvailableForTransfer]
+type=branch
+var=AssistanceAvailable
+1=TransferPleaseHold
+Next=PlayNoAssistanceAvailable
+
+[PlayNoAssistanceAvailable]
+type=play
+msg="NoOperator1"
+msgstring=OperatorOpen%"|D|h:n a/p"
+msg="And"
+msgstring=OperatorClosed%"|D|h:n a/p"
+msg="MondayThruFriday"
+
+[NoOperatorMenu2]
+type=menu
+msg="NoOperatorMenu"
+OnKey1=JurorMenu
+OnKey9=Goodbye
+MaxTimeouts=0
+OnMaxTimeOuts=HangupCall
+
+[TransferPleaseHold]
+type=play
+msg="PleaseHoldExtensionTransfer"
+WaitForMsg=True
+
+[PlayMusic]
+type=log
+!type=play
+!msg="$RingTone"
+!msg="$RingTone"
+!msg="$RingTone"
+!msg="$RingTone"
+!msg="$RingTone"
+!msg="$RingTone"
+
+
+[SetTransferDialString]
+type=ChangeVariable
+TransferDialString=Extension
+!TransferDialString="3003"
+!TransferDialString="3103"
+
+[BridgeTransMakeCall]
+type=Call
+DestinationNumber=TransferDialString
+OriginationNumber=5108790771
+NoAnswerTimeOutSec=50
+PartyName="JuryQueue"
+OnCallError=BridgeMakeCallError
+
+[StopOnHoldPlay]
+type=play
+flushplayqueue=true
+
+[PauseBeforeDial]
+type=Pause
+PauseMSec=500
+
+[SelectQueueInAA]
+type=dial
+PartyName="JuryQueue"
+dialstring="2"
+UseInbandDTMF=TRUE
+
+[BridgeCalls]
+type=CallControl
+UseDTMFGateway=True
+Command=Bridge
+OnError=BridgeMakeCallError
+Next=HangupCall
+
+[BridgeMakeCallError]
+type=log
+logmsg="Bridge Transfer Error"
+Next=Exit
+
+!--------------------------------------------------
+! Page 40 - No Assistance Available
+!--------------------------------------------------
+
+[NoAssistanceAvailable]
+type=play
+msg="NoOperator1"
+msgstring=OperatorOpen%"|D|h:n a/p"
+msg="And"
+msgstring=OperatorClosed%"|D|h:n a/p"
+msg="MondayThruFriday"
+
+[NoOperatorMenu]
+type=menu
+msg="NoOperatorMenu"
+MaxBadKeys=0
+OnMaxBadKeys=Exit
+TimeoutSec=5
+MaxTimeouts=1
+OnMaxTimeouts=Exit
+OnKey1=JurorMenu
+OnKey9=Goodbye
+
+!--------------------------------------------------
+! Page 40 - FAQs
+!--------------------------------------------------
+!=================================
+! FAQs
+!=================================
+[StatE_FAQs]
+Type=log
+LogMsg="JY_FAQ selected"
+
+!--------------------------------------------------
+! Page 40 - FAQs
+!--------------------------------------------------
+[FAQs]
+Type=log
+LogMsg="FAQ selected"
+
+[FAQMenu]
+Type=Menu
+Msg="FAQsMenu"
+OnKey1=SetFAQ1
+OnKey2=SetFAQ2
+OnKey3=SetFAQ3
+OnKey4=SetFAQ4
+OnKey5=SetFAQ5
+OnKey6=SetFAQ6
+OnKey7=SetFAQ7
+!OnKey8=SetFAQ8
+OnKey9=JurorMenu
+OnKey0=StatE_Transfer
+OnKeyStar=FAQMenu
+
+[SetFAQ1]
+type=changeVariable
+FAQMessage = "FAQ1"
+Next=PlayFAQMessage
+
+[SetFAQ2]
+type=play
+msg="FAQ2_1"
+msgstring=OperatorOpen%"|D|h:n a/p"
+msg="to"
+msgstring=OperatorClosed%"|D|h:n a/p"
+msg="FAQ2_2"
+
+[PlayFAQ2Menu]
+type=menu
+msg="FAQReturnMenu"
+OnKey7=FAQs
+OnKey8=ReturnFromFAQ
+OnKey9=Exit
+OnKey0=StatE_Transfer
+OnKeyStar=SetFAQ2
+OnKeyPound=PlayFAQ2Menu
+
+[SetFAQ3]
+type=changeVariable
+FAQMessage = "FAQ3"
+Next=PlayFAQMessage
+
+[SetFAQ4]
+type=changeVariable
+FAQMessage = "FAQ4"
+Next=PlayFAQMessage
+
+[SetFAQ5]
+type=changeVariable
+FAQMessage = "FAQ5"
+Next=PlayFAQMessage
+
+[SetFAQ6]
+type=changeVariable
+FAQMessage = "FAQ6"
+Next=PlayFAQMessage
+
+[SetFAQ7]
+type=changeVariable
+FAQMessage = "FAQ7"
+Next=PlayFAQMessage
+
+[SetFAQ8]
+type=changeVariable
+FAQMessage = "FAQ8"
+Next=PlayFAQMessage
+
+!--------------------------------------------------
+! Page 42 - Play FAQ Message
+!--------------------------------------------------
+
+[PlayFAQMessage]
+type=play
+msg=FAQMessage
+
+[PlayFAQMenu]
+type=menu
+msg="FAQReturnMenu"
+OnKey7=FAQs
+OnKey8=ReturnFromFAQ
+OnKey9=Exit
+OnKey0=StatE_Transfer
+OnKeyStar=PlayFAQMessage
+OnKeyPound=PlayFAQMenu
+
+[ReturnFromFAQ]
+type=Branch
+var=CT_JurorState
+"UNKNOWN"=JurorMenu
+"ERROR"=StatE_Transfer
+"UNDELIVERABLE"=StatE_Transfer
+Next=JurorMenu
+!============================================
+! ACD Call
+!============================================
+[ACDAvailable]
+type=log
+Next=SetForAssistanceAvailable
+
+[SetForAssistanceAvailable]
+type=VariableManager
+OnError=LogACDAvailableVMFailure
+VarList="AssistanceAvailable"
+
+[CheckOfficeOpenForJuryOperator]
+Type=Branch
+Var=AssistanceAvailable
+0=NoOperator
+1=PleaseHold
+Next=LogACDAvailableVMFailure
+
+[NoOperator]
+type=Play
+msg="NoOperators1"
+msgstring=OperatorOpen%"|D|h:n a/p"
+msg="And"
+msgstring=OperatorClosed%"|D|h:n a/p"
+msg="MondayThruFriday"
+WaitForMsg=true
+Next=Exit    
+
+[LogACDAvailableVMFailure]
+type=log
+logmsg="ACD Var Man Failure"
+next=PleaseHold
+
+[PleaseHold]
+type=log
+Next=StatE_Transfer
+
+!--------------------------------------------------
+! Page 43 - Admin
+!--------------------------------------------------
+[StatE_Admin]
+type=log
+logmsg="Admin"
+
+[AdminFunctions]
+type=GetDigits
+Var=EnteredRecordPassword
+!msg="EnterPassword"
+msg="Silence"
+MinDigits=4
+MaxDigits=4
+Terminator=""
+MaxTimeouts=0
+TimeoutSec=6
+OnMaxTimeouts=HangupCall
+OnKeyPound=HangupCall
+OnKeyStar=HangupCall
+
+[CompareAdminPassword]
+type=branch
+var=EnteredRecordPassword
+RecordPassword=StatE_RecordPhrase
+"2222"=TestCallInWindow
+"3333"=TestServing
+"4444"=TestDisqualified
+"5555"=TestPostponed
+"6666"=TestServiceEnded
+"7777"=TestExcused
+"8888"=TestReportingWeek
+"9999"=TestRequiredToReport
+Next=Goodbye
+
+!--------------------------------------
+! Test Required To Report
+[TestRequiredToReport]
+type=log
+
+[SetVarsForTest]
+type=changevariable
+inReportingWeek=1
+isTodayReportingDate=TRUE
+inCallinWindow=0
+CT_JurorState="QualifiedReport"
+Next=RequiredToReportInfo
+
+
+!--------------------------------------
+! Test Callin Window
+[TestServing]
+type=changeVariable
+CT_JurorState="Panel"
+Next=Serving
+
+!--------------------------------------
+! Test Callin Window
+[TestDisqualified]
+type=changeVariable
+CT_JurorState="Disqualified"
+Next=Disqualified
+
+!--------------------------------------
+! Test Callin Window
+[TestPostponed]
+type=changeVariable
+CT_JurorState="Postponed"
+Next=Postponed
+
+!--------------------------------------
+! Test Callin Window
+[TestServiceEnded]
+type=changeVariable
+CT_JurorState="Completed"
+Next=ServiceEnded
+
+!--------------------------------------
+! Test Callin Window
+[TestExcused]
+type=changeVariable
+CT_JurorState="Excused"
+Next=Excused
+
+!--------------------------------------
+! Test Callin Window
+[TestCallInWindow]
+type=log
+
+[ExecuteCallInWindowTEST] 
+type=log
+
+[LogCallinWindowTEST1]
+type=log
+var=CT_JurorID, CT_ScheduledDate, inCallinWindow
+Next=EndTest
+
+[LogJsErrorCallinWindowTEST]
+type=log
+
+[EndTest]
+type=log
+next=Exit
+
+!-----------------------------------
+! Check Exempt Excuse Disqualify
+!-----------------------------------
+[TestCheckExcuseExemptDisqualify]
+type=changeVariable
+CT_JurorID = "100139810"
+CT_RequestType ="Excuse"
+
+[LogTestInput]
+type=log
+var=CT_JurorID,CT_EligibleToExcuse
+
+
+[CheckExcuseExemptDisqualify]
+type=log
+
+
+[LogTestResults]
+type=log
+var=CT_JurorID,CT_returnedJurorId,CT_requestType,CT_EligibleToExcuse,CT_ResultCode,CT_ResultMessage
+Next=Exit
+
+[LogNoData]
+Type=log
+Next=Exit
+
+[LogJsErrorCheckEED]
+type=log
+!var=var=CT_ResultCode,CT_ResultMessage,CT_JurorID,CT_returnedJurorId,CT_requestType,CT_requestEligibility
+Next=Exit
+
+!-----------------------------------
+! Reporting Week Test
+!-----------------------------------
+[TestReportingWeek]
+type=log
+
+[SetReportingWeekTest]
+type=changeVariable
+CT_ScheduledDate="11/16/2023"
+
+[ExecuteInReportingWeekTest]
+type=log
+
+[LogInReportingWeek2]
+type=log
+var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
+Next=SendTestSuccess
+
+[LogJsErrorInReportingWeek2]
+type=log
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
+Next=Exit
+
+[SendTestSuccess]
+type=pause
+pausesec=1
+
+[SendTestSuccess1]
+type=dial
+dialstring="1111"
+Next=Exit
+
+!--------------------------------------------
+! Test mode
+!---------------------------------------------
+[StatE_TestMode]
+type=log
+logmsg="Admin: TestMode"
+
+[SetCallForTest]
+Type=ChangeVariable
+JuryTestMode=1
+
+[PlayTestMode]
+Type=Play
+Msg="TestMode"
+Next=JurorMenu
+
+!--------------------------------------------------
+! Page 44
+!--------------------------------------------------
+
+[StatE_RecordPhrase]
+type=log
+logmsg="Admin Record"
+Next=SetOptionalGreeting
+
+[RecordMainMenu]
+type=menu
+msg="RecordMainMenu"
+OnKey1=SetDailyReportingInstructions
+OnKey2=SetOptionalGreeting
+OnKey3=SetPhraseToRecord
+OnKey9=Exit
+OnKeyPound=RecordMainMenu
+OnKeyStar=RecordMainMenu
+
+[SetDailyReportingInstructions]
+type=changeVariable
+PhraseToRecord="DailyReportingInstructions"
+Next=RecordMenu
+
+[SetOptionalGreeting]
+type=changeVariable
+PhraseToRecord="OptionalGreeting"
+Next=RecordMenu
+
+[SetPhraseToRecord]
+type=VariableManager
+VarList="PhraseToRecord"
+OnError=LogPhraseToRecordVMFailure
+Next=RecordMenu
+
+[LogPhraseToRecordVMFailure]
+type=log
+logmsg="Error getting Phrase To Record from Variable Manager"
+
+[PlayVMErrorMessage]
+type=play
+msg="SystemProblem"
+Next=RecordMainMenu
+
+!--------------------------------------------------
+! Page 45
+!--------------------------------------------------
+
+[RecordMenu]
+type=log
+logmsg="RecordPath = "%RecordPath%", PhraseToRecord = "%PhraseToRecord
+
+[PlayRecordingOptGreeting]
+type=play
+msg="RecordingOptGreeting"
+
+[RecordMenuBlock]
+type=menu
+msg="RecordMenu"
+OnKey1=RecordMessage
+OnKey2=PlayRecordedMessage
+OnKey3=RecordMainMenu
+OnKey4=Exit
+OnKey5=Exit
+OnKey9=Exit
+OnKeyPound=RecordMenu
+OnKeyStar=RecordMenu
+
+[RecordMessage]
+type=Record
+msg="RecordPrompt"
+FlushKeys=1
+PlayBeep=1
+MaxRecordingSec=600
+WaitForMsg=1
+FileName=RecordPath%PhraseToRecord
+Next=RecordMenu
+
+[PlayRecordedMessage]
+type=play
+msg=PhraseToRecord
+Next=RecordMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!! Quick Record  !!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[QuickRecordFile]
+type=Record
+msg="QuickRecordPrompt"
+!Terminator="#"
+FlushKeys=True
+PlayBeep=True
+!TimeoutSec=300
+MaxRecordingSec=600
+!VoxTimeoutSec=5
+WaitForMsg=True
+FileName="RecordedPhrase"
+Next=PlayRecordedFile
+
+[PlayRecordedFile]
+type=play
+msg="RecordedPhrase"
+next=Exit
+
+!======================================
+! Self test - simple record retrieval
+! 
+[SelfTest]
+type=log
+
+[SetTestCaseVariables]
+type=changeVariable
+CT_JurorID="104277520"
+CT_DOB="10231966"
+
+[GetJurorInfoTEST]
+type=log
+Next=LogSelfTest
+
+[LogSelfTest]
+type=log
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+
+[SendSuccess]
+type=pause
+pausesec=1
+
+[SendSuccess1]
+type=dial
+dialstring="1111"
+Next=HangupCall
+
+!-------------------------
+! Record Not found failure
+[RecordNotFoundFailure]
+type=pause
+pausesec=1
+
+[RecordNotFoundFailure2]
+type=dial
+dialstring="2222"
+logblock=true
+UseInbandDtmf=false
+Next=HangupCall
+
+!------------------------
+! Javascript failure
+[JavascriptFailure]
+type=pause
+pausesec=1
+
+[JavascriptFailure3]
+type=dial
+dialstring="3333"
+logblock=true
+UseInbandDtmf=false
+Next=HangupCall
+
+!===================================
+! End Routines
+!===================================
+[EndCall]
+type=log
+
+[Exit]
+type=play
+msg="ThankYou"
+WaitForMsg=True
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=True
+Next=HangupCall
+
+[HangupCall]
+type=CallControl
+Command=Disconnect
+
+[TerminateCall]
+type=Terminate
+!!End Of Script Nothing Goes Below This
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

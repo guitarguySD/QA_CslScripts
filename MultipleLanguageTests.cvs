@@ -1,0 +1,434 @@
+! Get Digits Test
+! dgoddette
+! Sep 2025
+[ScriptSetup]
+Type=SetGlobals
+Language="English"
+MaxCallSec=90000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallSec
+OnCallDisconnect=CallDisconnectHandler
+OnScriptError=ExitOnMaxCallSec
+AllowOnDisconnect=True
+LogTrace=True
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=False
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=ExitOnMenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=ExitOnMenuError
+DefaultOnMaxBadValues=ExitOnMenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+
+[DefineVariables]
+Type=DefineVars
+UserEnteredDigits=""
+DigitsCount=""
+numDigits=0
+
+! Test01
+Test01Expected="1234"
+Test01ExpectedDigitsCount=4
+
+! Test02
+Test02Expected=5678
+Test02ExpectedDigitsCount=4
+BufferedDigits=""
+BufferedDigitsCount=""
+
+! Test02
+Test03Expected=345
+Test03ExpectedDigitsCount=3
+
+
+[StartTests]
+type=play
+TTSString="This is the Get Digits Tests"
+
+!====================================
+! Test01 - get 4 digits
+! 
+[GetDigits_Test01]
+Type=GetDigits
+TTSString="Test one: Please enter the digits 1, 2, 3, 4."
+Var=UserEnteredDigits
+CountVar=DigitsCount
+MinDigits=4
+MaxDigits=4
+TimeoutSec=5
+MaxTimeouts=1
+OnMaxTimeouts=Test01Fail
+LogBlock=true
+
+[Test01ResultCheck]
+type=branch
+var=UserEnteredDigits
+Test01Expected=Test01Pass
+Next=Test01Fail
+
+[Test01Pass]
+type=play
+TTSString="Test one value passed"
+Next=Test01CountCheck
+
+[Test01Fail]
+type=play
+TTSString="Test one value failed. Value does not match expected"
+
+[Test01FailLog]
+type=log
+var=Test01Expected,UserEnteredDigits,DigitsCount
+Next=Test01CountCheck
+
+[Test01CountCheck]
+type=branch
+var=DigitsCount
+Test01ExpectedDigitsCount=Test01aPass
+Next=Test01aFail
+
+[Test01aPass]
+type=play
+TTSString="Test one count passed"
+Next=Test02
+
+[Test01aFail]
+type=play
+TTSString="Test one count failed. Value does not match expected"
+Next=Test02
+
+!====================================
+! Test02 - Type Ahead Test
+! 
+[Test02]
+type=log
+
+[GetDigits_Test02]
+Type=GetDigits
+TTSString="Test two: Type Ahead Test. Please enter the digits one through eight."
+Var=UserEnteredDigits
+CountVar=DigitsCount
+MinDigits=4
+MaxDigits=4
+TimeoutSec=5
+MaxTimeouts=1
+OnMaxTimeouts=Test02Fail
+LogBlock=true
+
+[PauseHere2]
+type=Pause
+PauseSec=1
+
+[GetDigits2_KeyBuffer]
+type=GetDigits
+TTSString="Test two: Type ahead Test, please enter 5,6,7,8"
+var=BufferedDigits
+CountVar=BufferedDigitsCount
+MinDigits=4
+MaxDigits=4
+TimeoutSec=5
+MaxTimeouts=1
+OnMaxTimeouts=Test02Fail
+LogBlock=true
+
+
+[Test02ResultCheck]
+type=branch
+var=BufferedDigits
+Test02Expected=Test02Pass
+Next=Test02Fail
+
+[Test02Pass]
+type=play
+TTSString="Test two value passed"
+Next=Test02CountCheck
+
+[Test02Fail]
+type=play
+TTSString="Test two value failed. Value does not match expected"
+
+[Test02FailLog]
+type=log
+var=Test02Expected,BufferedDigits,BufferedDigitsCount
+Next=Test02CountCheck
+
+[Test02CountCheck]
+type=branch
+var=BufferedDigitsCount
+Test02ExpectedDigitsCount=Test02aPass
+Next=Test01aFail
+
+[Test02aPass]
+type=play
+TTSString="Test two count passed"
+Next=Test03
+
+[Test02aFail]
+type=play
+TTSString="Test two count failed. Value does not match expected"
+Next=Test03
+
+!====================================
+! Test03 - Purge Buffer Test
+! 
+[Test03]
+type=log
+
+[GetDigits_Test03]
+Type=GetDigits
+TTSString="Test three: Flush keys Test. Please enter the digits one through eight."
+Var=UserEnteredDigits
+CountVar=DigitsCount
+MinDigits=4
+MaxDigits=4
+TimeoutSec=5
+MaxTimeouts=1
+OnMaxTimeouts=Test03Fail
+LogBlock=true
+
+[PauseHere3]
+type=Pause
+PauseSec=2
+
+[GetDigits3_KeyBuffer]
+type=GetDigits
+TTSString="Test Three: Flush Keys Test, please enter 3 4 5"
+var=BufferedDigits
+CountVar=BufferedDigitsCount
+MinDigits=3
+MaxDigits=3
+TimeoutSec=5
+MaxTimeouts=1
+FlushKeys=true
+OnMaxTimeouts=Test03Fail
+LogBlock=true
+
+[Test03ResultCheck]
+type=branch
+var=BufferedDigits
+Test03Expected=Test03Pass
+Next=Test03Fail
+
+[Test03Pass]
+type=play
+TTSString="Test three value passed"
+Next=Test03CountCheck
+
+[Test03Fail]
+type=play
+TTSString="Test three value failed. Value does not match expected"
+
+[Test03FailLog]
+type=log
+var=Test03Expected,BufferedDigits,BufferedDigitsCount
+Next=Test03CountCheck
+
+[Test03CountCheck]
+type=branch
+var=BufferedDigitsCount
+Test03ExpectedDigitsCount=Test03aPass
+Next=Test03aFail
+
+[Test03aPass]
+type=play
+TTSString="Test three count passed"
+Next=Test04
+
+[Test03aFail]
+type=play
+TTSString="Test three count failed. Value does not match expected"
+Next=Test04
+
+!====================================
+! Test04 - Min Max Value Test
+! 
+[Test04]
+type=log
+
+[UnderMinvalue]
+type=play
+TTSString="In this test, you will enter three different numbers. The first time enter 3,3,3. Then 5,5,5. Finally enter 4,4,4."
+
+[GetDigits_Test04]
+Type=GetDigits
+TTSString="Test four: Minimum and Max Value Test. Enter the first number. "
+Var=UserEnteredDigits
+CountVar=DigitsCount
+MinDigits=3
+MaxDigits=3
+TimeoutSec=5
+MaxTimeouts=3
+MinValue=345
+MinValueMsg="MinValueMsg"
+MaxValue=445
+MaxValueMsg="MaxValueMsg"
+CheckValue=true
+OnMaxTimeouts=Test04MaxEntries
+OnMaxBadValues=Test04MaxEntries
+MaxBadValues=5
+LogBlock=true
+
+[CheckTest04Result]
+type=branch
+var=UserEnteredDigits
+345=Test04Pass
+445=Test04Pass
+OnAboveRange=Test04Fail
+OnBelowRange=Test04Fail
+!Next=Test04Fail
+
+[Test04Pass]
+type=play
+TTSString="Test 4 pass. value is between 345 and 445."
+Next=Test05
+
+[Test04Fail]
+type=play
+TTSString="Test 4 fail. Value is outside of 345 and 445."
+Next=Test05
+
+[Test04MaxEntries]
+type=play
+TTSString="Test 4 complete. Max entries for get digits block."
+Next=Test05
+
+!====================================
+! Test05 - Terminator Test
+! 
+[Test05]
+type=log
+
+[GetDigits_Test05]
+Type=GetDigits
+TTSString="Test five: Terminator test. Enter any number of digits followed by the pound or star key to terminate. "
+Var=UserEnteredDigits
+CountVar=DigitsCount
+MinDigits=1
+MaxDigits=20
+TimeoutSec=5
+MaxTimeouts=3
+OnMaxTimeouts=Test05Fail
+OnMaxBadValues=Test05Fail
+LogBlock=true
+Terminator="#*"
+
+[Test05Check]
+type=menu
+ttsstring="You entered"
+msgstring=UserEnteredDigits%"|C"
+ttsstring="Is this correct? Press 1 for Yes, 2 for no."
+OnKey1=Test05Pass
+OnKey2=Test05Fail
+
+[Test05Pass]
+type=play
+TTSString="Test 5 pass. Terminated"
+Next=Test06
+
+[Test05Fail]
+type=play
+TTSString="Test 5 fail. Did not terminate correctly"
+Next=Test06
+
+
+!====================================
+! Test05 - Terminator Test
+! 
+[Test06]
+type=log
+
+
+[GetDigits_Test06]
+Type=GetDigits
+TTSString="Test six: OnKey test. Enter 1,2,3,4"
+Var=UserEnteredDigits
+CountVar=DigitsCount
+TimeoutSec=5
+MaxTimeouts=3
+MinDigits=1
+MaxDigits=20
+OnMaxTimeouts=Test06Fail
+LogBlock=true
+OnKeyStar=Test06Pass
+Terminator="#"
+Next=LogTest6Entry
+
+[LogTest6Entry]
+type=log
+var=UserEnteredDigits
+
+[Test06Check]
+type=menu
+ttsstring="You entered"
+msgstring=UserEnteredDigits%"|C"
+ttsstring="Is this correct? Press 1 for Yes, 2 for no."
+OnKey1=Test06Pass
+OnKey2=Test06Fail
+
+[Test06Pass]
+type=play
+TTSString="Test 6 pass on terminator"
+Next=Test06PassLog
+
+[Test06Fail]
+type=play
+TTSString="Test six fail. On Key did not work. Check the log file"
+Next=EndCall
+
+[Test06PassLog]
+type=log
+var=UserEnteredDigits,DigitsCount
+Next=EndCall
+
+
+!=============================
+[ExitOnMaxCallSec]
+type=log
+next=EndCall
+
+[ExitOnMaxCallErrors]
+type=log
+next=EndCall
+
+[ExitOnScriptError]
+type=log
+next=EndCall
+
+[ExitOnMenuError]
+type=Log
+Next=EndCall
+
+[ExitOnMaxBadKeys]
+type=Log
+Next=EndCall
+
+[CallDisconnectHandler]
+type=log
+Next=EndCall
+
+[EndCall]
+type=log
+
+[EndMessage]
+type=play
+TTSString="Thank you, goodbye. Exiting."
+WaitForMsg=TRUE
+
+[TerminateCall]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate
+

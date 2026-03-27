@@ -1,0 +1,2417 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!  Script file for application "BasicIvrTest" in department "SystemTests"  !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! CVS(VoIP) Test Script 
+! Murray Judy
+! Version 3.1  04/05/2019
+!
+! 
+!Asterisk Basic IVR Test script
+!removed vap file test and added TestHelpMenu msg, PlaybackTestMenu msg and CvsTestScriptMenu msg	eb	20250429
+!
+ 
+!========================================
+!Setup
+!========================================
+
+[ScriptSetup]
+type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"	!deprecated
+Language="English"
+MaxCallSec=2000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallErrors
+OnCallDisconnect=CallDisconnectHandler
+!OnMissingMsg=ThankYouGoodbyeExit
+OnScriptError=ExitOnScriptError
+AllowOnDisconnect=True
+!OnDtmfA=IgnoreBlock	!not in scripting guide
+LogTrace=True
+
+!========================================
+! Set System Defaults
+!========================================
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=FALSE
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=MenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=MenuError
+DefaultOnMaxBadValues=MenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+!========================================
+! Define Variables
+!========================================
+[CreateVariables]
+type=DefineVars
+ACD_OriginationAddress="8588641450"
+Array_Var1=""
+Array_Var2=""
+BasicTest_LogText=""		! Used by the DLL test
+BasicTest_Variable="A"		! Used by the DLL test
+BasicTest_IntVariable="1"
+
+BasicTestJs_Status=""		! Used by the JavaScript test
+BasicTestJs_ScriptInput="1"
+BasicTestJs_ScriptOutput=""
+BridgeTimerSec=30
+CallbackFinalStatus=0
+CheckRtpStats=0
+CountValue=0
+CtiTestData="Example CTI Data from script"
+
+DigitEntry=""
+DtmfString="0123456789*#ABCD"
+! HPS Test Outbound Calling Number.
+HpsTestPhoneNumber="205" 
+!HpsTestPhoneNumber="8005553333@199.244.102.231"
+!4144549572@199.244.102.232"    ! ShoreTel Chicago data center
+!HpsTestPhoneNumber="4144549572@199.244.103.231"    ! ShoreTel NYC data center
+HpsTransferID="0004336"
+HoldTimerSec=6
+JavaScriptTestMode=0
+
+QuestionNumber=0
+QueueShutdown="QueueShutdown"
+RecordBlockResult=""
+RtpStatAudioPacketsRx=0
+
+! Default Outbound Calling Number.
+TestPhoneNumber="204"
+!TestPhoneNumber="8588641453@192.168.5.252"
+!TestPhoneNumber="1453@192.168.5.252"
+!TestPhoneNumber="5551111@192.168.5.31"
+
+!  Variable Manager Test vars
+TestVmVar1=0
+TestVmVar2=0
+TestVmVar3=0
+
+TransferToCallId=""
+UserInput=""
+
+!
+! Define ACD Variables
+!
+[CreateAcdVariables]
+type=DefineVars
+ACD_RouteCode=0				! Denotes why call routed back to CVS
+AgentCredentials=""
+AgentTransfer=0
+AssistanceAvailable=1
+CallbackOption=0
+
+!
+! Define CTI Variables
+!
+Department="Test Department"
+CallerLanguage="English"
+PT_AssessmentNumber="123456"
+ScreenMsg="Hello"
+
+!
+! Define ACD Callback Variables
+!
+CallbackFifoEnabled=""
+CallbackFifoEstimatedTime=""
+CallbackScheduledEnabled=""
+CallbackScheduledFirstTime=""
+CallbackScheduledLastTime=""
+CallbackTime=""
+CallbackNumber="204"
+CallbackOrigNumber="8005551212"
+
+!========================================
+! Define REST API Test Variables
+!========================================
+[CreateRestApiVars]
+type=DefineVars
+ApiStatusCode=""
+ApiSuccess=""
+ApiError=""
+ApiCasesJson=""
+ApiCaseCount="0"
+ApiCaseIdx="0"
+ApiCaseNumberResult=""
+ApiCaseCategory=""
+ApiCaseType=""
+ApiCaseEligible=""
+ApiCaseStatus=""
+ApiPayorsJson=""
+ApiPayorCount="0"
+ApiPayorIdx="0"
+ApiPayorName=""
+ApiPayorEligible=""
+ApiPayorAmount=""
+
+! Default Call Reference stored in Calls table. Changed in some script paths.
+[SetBasicCallReference]
+type=ChangeVariable
+@CallReference="BasicIvrScript"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!   Handle Call Type
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[BranchOnCallType]
+type=Branch
+var=@CallType
+1=LogLocationVariables		! Normal inbound call start
+3=MaintenanceMode
+4=OverloadMode
+10=StartAcdCallback
+
+
+[LogLocationVariables]
+type=Log
+Var=@CallType,@InCallLocationType,@InCallLocationAreaCode,@InCallLocationDesc,@InCallLocationTZOffset
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!    Main Menu   !!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+[MainMenu]
+type=Menu
+Msg="CvsTestScript"
+Msg="CvsTestScriptMenu"
+OnKey1=ContinuousFilePlaybackTest  ! Play continuous until key pressed
+OnKey2=PlaybackTestMenu	           ! A set of play tests
+OnKey3=CallControlTestMenu	       ! CallControl Menu. Various outbound and transfer tests
+OnKey4=RecordFile  		           ! Record a file: "TestRecording.vox"
+OnKey5=MiscTests                   ! Misc Tests
+OnKey6=AcdTestMenu                 ! ACD Tests
+OnKey7=CvpBlockTests               ! Test various blocks
+OnKey9=DevTests                    ! Developer Tests Menu
+OnKeyStar=TestHelp
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+
+[TestMenuTimeout]
+type=Pause
+PauseMsec=50
+next=TestComplete
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!    MainMenu *: Help         !!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestHelp]
+type=Play
+Msg="TestHelpMenu"
+next=MainMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 1 PlaybackTest: Continuous File Play !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Loop until a digit is pressed
+[ContinuousFilePlaybackTest]
+type=GetDigits
+msg="PlaybackTestMessage"
+Var=DigitEntry
+MinDigits=1
+Terminator="#"
+TimeOutSec=1
+MaxTimeouts=1
+OnMaxTimeouts=ContinuousFilePlaybackTest
+Next=MainMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!   Test 2: PlaybackTest      !!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[PlaybackTestMenu]
+type=Menu
+!Msg="PlaybackTest"
+Msg="PlaybackTestMenu"
+OnKey1=SimpleFilePlaybackTest	! Play a single vox file
+!OnKey2=VapFilePlaybackTest		! Plays the first three segments of the system vap file: 1,2,3
+OnKey3=TtsPlaybackTest
+OnKey4=MissingVoxFileTest
+OnKey5=FormattedPlayTest
+OnKey6=TtsLoadTest
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 2.1 PlaybackTest: SimpleFilePlayback !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[SimpleFilePlaybackTest]
+type=Play
+ignoreKeys=TRUE
+msg="SimplePlaybackTest"
+WaitForMsg=TRUE
+
+[PlaybackTestLoop]
+type=Play
+FlushPlayQueue=TRUE
+msg="PlaybackTestMessage"
+UseNavigation=True
+next=PlaybackTestMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 2.2 PlaybackTest: VapFilePlayback  !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+![VapFilePlaybackTest]
+!type=Play
+!MsgString="vvsystem.vap|I|1"
+!MsgString="vvsystem.vap|I|2"
+!MsgString="vvsystem.vap|I|3"
+!next=PlaybackTestMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 2.3 PlaybackTest: TtsPlaybackTest  !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TtsPlaybackTest]
+type=Play
+!TtsString="Bob Smith"
+TtsString="Please enter your 4-digit PIN: 1, 2, 3, 4. Your balance is $1,234.56, updated on 07/29/2025 at 3:45 PM."
+TtsString="Hello world This is a test string with special characters: @ # $ % ^ & * ( ) _"
+WaitForMsg=TRUE
+next=PlaybackTestMenu
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 2.4 PlaybackTest: MissingVoxFileTest  !!!!!!
+!!!!     Executing this test should turn on the     !!
+!!!!     yellow Vox Files LED in ControlPanel.      !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[MissingVoxFileTest]
+type=Play
+msg="ThisFileIsMissing"
+next=PlaybackTestMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!  Test 2.5 - FormattedPlayTest      !!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[FormattedPlayTest]
+type=play
+Msg="FormattedPlayTest"
+
+[TestNumber]
+type=play
+Msg="FormattedNumber"
+MsgString=ACD_RouteCode%"|N|0"
+
+[TestDate]
+type=play
+Msg="DateFormat"
+MsgString="Mon Jul 28 10:15:00 2014|D|ddd mmm dd yyyy"
+
+[TestTime]
+type=play
+Msg="TimeFormat"
+MsgString="10:15:00|D|h:n a/p"
+
+[TestCharacters]
+type=play
+Msg="FormattedCharacters"
+MsgString="ABCD0123456789#*|C"
+
+[TestMoney]
+type=play
+Msg="FormattedMoney"
+MsgString="12345600.12|M"
+next=PlaybackTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Test 2.6 PlaybackTest: TtsLoadTest   
+!	Execute TTS name plays continuously until a key press.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TtsLoadTest]
+type=Play
+TtsString="ROBERT CARLOS SMITH"
+WaitForMsg=TRUE
+
+[TtsLoadTest2]
+type=Play
+TtsString="sebastian mcIver"
+WaitForMsg=TRUE
+
+[TtsLoadTest3]
+type=Play
+TtsString="Satya Nadella"
+
+! Loop until a digit is pressed
+[TtsLoadTestCheckKey]
+type=GetDigits
+Var=DigitEntry
+MinDigits=1
+Terminator="@"
+TimeOutSec=1
+MaxTimeouts=1
+OnMaxTimeouts=TtsLoadTest
+next=PlaybackTestMenu
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!! MainMenu 3:  CallControl Test  !!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallControlTestMenu]
+type=Menu
+Msg="CallControlTest"
+Msg="CallControlTestMenu"
+OnKey1=SetTestVariables     ! Enter test phone number & timer vars
+OnKey2=DisconnectTest		! Disconnect block test
+OnKey3=CallBlockTest	    ! Call block test
+OnKey4=CallHoldTests        ! Menu of call Hold tests
+OnKey5=CallTransferTests	! Menu of call transfer tests
+OnKey6=HpsTestMenu      	! Menu of HPS tests
+OnKeyStar=PlayCallControlMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+
+[PlayCallControlMenu]
+type=Play
+Msg="CallControlMenu"
+Next=CallControlTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!! Test 3.1  CallControl Set Test Variables   !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[SetTestVariables]
+type=Menu
+Msg="SetTestVariablesMenu"
+OnKey1=SetTestPhoneNumber   ! call block destination for Call Control tests
+OnKey2=SetTestHoldTimer     ! Timer for hold tests
+OnKey3=SetTestBridgeTimer	! Timer for bridge tests
+OnKeyStar=PlayCallControlMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 3.1.1 CallControl Set Test Phone Number  !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[SetTestPhoneNumber]
+type=GetDigits
+Msg="EnterTestPhoneNumber"
+Var=TestPhoneNumber
+Terminator=#
+MinDigits=3
+MaxDigits=10
+TimeOutSec=20
+next=CallControlTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 3.1.2 CallControl Set Test Timer Var   !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[SetTestHoldTimer]
+type=GetDigits
+Msg="EnterTimerValue"
+Var=HoldTimerSec
+Terminator=#
+MinDigits=1
+MaxDigits=3
+TimeOutSec=20
+next=CallControlTestMenu
+
+[SetTestBridgeTimer]
+type=GetDigits
+Msg="EnterTimerValue"
+Var=BridgeTimerSec
+Terminator=#
+MinDigits=1
+MaxDigits=4
+TimeOutSec=20
+next=CallControlTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 3.2  CallControl DisconnectTest  !!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[DisconnectTest]
+type=Play
+Msg="DisconnectTest"
+!Next=GoodBye
+Next=FinalBlock
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 3.3  CallControl CallBlockTest  !!111!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallBlockTest]
+type=play
+msg="Goodbye"
+
+[MakeCall]
+type=Call
+DestinationNumber=TestPhoneNumber
+!DestinationUri="8585551200@192.168.5.111"
+OriginationNumber="230"
+CallReference="CallBlockTest"
+NoAnswerTimeoutSec=15
+OnCallError=CallBlockError
+
+[MakeCallComplete]
+type=play
+msg="Silence"
+msg="TestPassed"
+WaitForMsg=TRUE
+
+! Inbound call message should be finished. Disconnect the caller.
+[DisconnectInboundCall]
+type=CallControl
+Command=Disconnect
+PartyName="Caller"
+OnError=CallBlockDisconnectError
+
+[WaitForOutboundCallToDisconnect]
+type=Pause
+Next=WaitForOutboundCallToDisconnect
+
+[CallBlockError]
+type=Log
+next=TestComplete
+
+[CallBlockDisconnectError]
+type=Log
+next=TestComplete
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 3.4   CallControl Call Hold Tests   !!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallHoldTests]
+type=Menu
+Msg="CallHoldTestMenu"
+OnKey1=CallHoldTest     	! Active (sendonly) Hold
+OnKey2=CallHoldInactiveTest	! Inactive (inactive) Hold
+OnKeyStar=PlayCallControlMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 3.4.1 CallControl Active (sendonly) Hold  !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallHoldTest]
+type=Play
+msg="CallHoldTest"
+msg="Music"
+
+[WaitForPlayToStart]
+type=Pause
+
+[PutCallOnHold]
+type=CallControl
+Command=Hold
+PartyName="Inbound"
+OnError=HoldTestError
+ 
+! Pause so that tester can verify that call is on hold:
+!   there should be no DTMF digits transmitted by the caller phone.
+[WaitDuringHold]
+type=Pause
+PauseSec=HoldTimerSec
+
+[TakeCallOffHold]
+type=CallControl
+Command=OffHold
+OnError=HoldTestError
+
+[HoldTestComplete]
+type=Play
+msg="TestToneOneMw240mS"
+FlushPlayQueue=true
+next=CallControlTestMenu
+
+[HoldTestError]
+type=Log
+Next=EndCall
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!! Test 3.4.2 CallControl Inactive Hold  !!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallHoldInactiveTest]
+type=Play
+msg="CallHoldInactiveTest"
+msg="Music"
+
+[WaitForPlayToStartInactive]
+type=Pause
+
+[PutCallOnHoldIn]
+type=CallControl
+Command=HoldInactive
+PartyName="Inbound"
+OnError=HoldInTestError
+
+! Pause so that tester can verify that call is on hold:
+!   there should be no DTMF digits transmitted by the caller phone.
+[WaitDuringHoldIn]
+type=Pause
+PauseSec=HoldTimerSec
+
+[TakeCallOffHoldIn]
+type=CallControl
+Command=OffHold
+OnError=HoldInTestError
+
+[HoldInTestComplete]
+type=Play
+msg="TestToneOneMw240mS"
+FlushPlayQueue=true
+next=CallControlTestMenu
+
+[HoldInTestError]
+type=Log
+Next=EndCall
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!! Test 3.5.X CallControl Transfer Test Menu   !!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallTransferTests]
+type=Menu
+Msg="TransferTestsMenu"
+OnKey1=BlindTransferTest    
+OnKey2=SupervisedTransferTest
+OnKey3=BridgedTransferTest
+OnKeyStar=PlayCallControlMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! Test 3.5.1  CallControl Blind Transfer Test !!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[BlindTransferTest]
+type=Play
+msg="Music"
+
+[BtPutCallOnHold]
+type=CallControl
+Command=Hold
+OnError=BtHoldErrorDuringTest
+
+[BtStartTransfer]
+type=CallControl
+Command=Transfer
+PartyName="Inbound"
+DestinationNumber=TestPhoneNumber
+OnError=BtTransferError
+
+! Debug Loop !!!!!!!!!!!!!
+! Remove after Refer state machine is working in SipServer
+[BtLogTransfer]
+type=Pause
+PauseSec=5
+
+[BtDisconnectAfterTransfer]
+type=CallControl
+Command=Disconnect
+OnError=BtDisconnectError
+
+! Error putting call on hold. Recoverable error.
+[BtHoldErrorDuringTest]
+type=Log
+Next=EndCall
+
+! Transfer Failed.  Normally, we would take Inbound off hold, but test script bails.
+[BtTransferError]
+type=Log
+Next=EndCall
+
+! Error disconnecting after the transfer. ** Non-Recoverable error **
+[BtDisconnectError]
+type=Log
+Next=EndCall
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! Test 3.5.2  CallControl Supervised Transfer Test !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[SupervisedTransferTest]
+type=Play
+msg="Music"
+
+[StPutCallOnHold]
+type=CallControl
+Command=Hold
+OnError=StHoldErrorDuringTest
+
+[StMakeCall]
+type=Call
+DestinationNumber=TestPhoneNumber
+PartyName="TransferDestinationCall"
+OnCallError=StMakeCallError
+
+[StConnectMessage]
+type=Play
+msg="Silence"
+WaitForMsg=TRUE
+
+! Connected to TransferDestinationCall.  Play DIGITS.
+[StPlayToDestination]
+type=Play
+msg="TransferAnnouncement"
+WaitForMsg=TRUE
+
+[StMakeCallComplete]
+type=dial
+UseInbandDtmf=TRUE
+DialString="01234567890#*"
+
+[StPlayBeep2]
+type=Play
+msg="Silence"
+WaitForMsg=TRUE
+
+[StPutSecondCallOnHold]
+type=CallControl
+Command=Hold
+PartyName="TransferDestinationCall"
+OnError=StHoldErrorDuringTest
+
+[StStartTransfer]
+type=CallControl
+Command=Transfer
+PartyName="Inbound"
+PartyName="TransferDestinationCall"
+OnError=StTransferError
+
+[StLogAfterTransfer]
+type=Log
+
+[WaitDuringCall]
+type=pause
+PauseSec=30
+Next=EndCall
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Test 3.5.3 CallControl Bridged Transfer Test   !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[BridgedTransferTest]
+type=CallControl
+Command=Hold
+OnError=ChHoldErrorDuringTest
+
+[BridgeTransMakeCall]
+type=Call
+DestinationNumber=TestPhoneNumber
+OriginationNumber=@OriginationAddress
+PartyName="TestCallConsHold"
+SipHeader="Sonant-Test=2"
+!SipHeader="Sonant-Test=1,603"
+!SipHeader="Sonant-Transfer-ID=1234567"
+OnCallError=ChMakeCallError
+
+[TakeInboundOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=ChHoldErrorDuringTest
+
+[BridgeCalls]
+type=CallControl
+Command=Bridge
+OnKeyD=ExitBridgedCallOnD
+OnError=StHoldErrorDuringTest
+
+! Wait forever until the calls terminate
+[BridgedCallDisconnect]
+type=Log
+Next=CallControlTestMenu
+
+[ExitBridgedCallOnA]
+type=Log
+next=CallControlTestMenu
+
+[ExitBridgedCallOnB]
+type=Log
+next=CallControlTestMenu
+
+[ExitBridgedCallOnC]
+type=Log
+next=CallControlTestMenu
+
+[ExitBridgedCallOnD]
+type=Log
+next=CallControlTestMenu
+
+
+!
+! Common Make Call Error Handler
+!
+[ChMakeCallError]
+type=Log
+Next=EndCall
+
+!
+! Common Hold Error Handler
+!
+[ChHoldErrorDuringTest]
+type=Log
+Next=EndCall
+
+
+!
+! Error Handlers
+!
+
+! Error making the Supervised Transfer call.
+[StMakeCallError]
+type=Log
+Next=EndCall
+
+! Error putting call on hold. Recoverable error.
+[StHoldErrorDuringTest]
+type=Log
+Next=EndCall
+
+! Transfer Failed.  Normally, we would take Inbound off hold. Test script bails.
+[StTransferError]
+type=Log
+Next=EndCall
+
+! Error disconnecting after the transfer. ** Non-Recoverable error **
+[StDisconnectError]
+type=Log
+Next=EndCall
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!     Test 3.6 HPS Tests Menu   !!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[HpsTestMenu]
+type=Menu
+Msg="HpsTestsMenu"
+OnKey1=HpsPaymentTestDtmf    
+OnKey2=HpsPaymentTestTokOnly
+OnKeyStar=PlayCallControlMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+IgnoreMissingMsg=TRUE
+next=RunAnotherTest
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 3.6.1 - Makes a HPS call using DTMF protocol
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[HpsPaymentTestDtmf]
+type=CallControl
+Command=Hold
+OnError=ChHoldErrorDuringTest
+
+[HpsTest1MakeCall]
+type=Call
+DestinationNumber=HpsTestPhoneNumber
+PartyName="TestCallConsHold"
+!SipHeader="X-Sonant-TransferID=HpsTransferID"
+NoAnswerTimeoutSec=10
+OnCallError=HpsCallFailed
+
+
+[PauseBeforedigits]
+type=Pause
+PauseMsec=300
+
+{
+[dialTest]
+type=Dial
+DialString="01234567890#*"
+}
+[HpsTransferIdProtocolStart]
+type=Menu
+OnKeyPound=HpsTest1TakeInboundOffHold
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=1
+IgnoreMissingMsg=TRUE
+
+
+[HpsTest1TakeInboundOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=HpsCallFailed
+
+[HpsTest1BridgeCalls]
+type=CallControl
+Command=Bridge
+OnError=HpsBridgedFailed
+
+! Wait forever until the calls terminate
+
+[HpsTest1BridgeFinished]
+type=Log
+Next=RunAnotherTest
+
+! Error Handlers for HPS Call
+
+[HpsCallFailed]
+type=Log
+
+[HpsCallFailedRestoreInbound]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=HpsCallFailed
+Next=RunAnotherTest
+
+[HpsBridgedFailed]
+type=Log
+Next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 3.6.2 - Makes a HPS call using Token-Only protocol
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[HpsPaymentTestTokOnly]
+type=CallControl
+Command=Hold
+OnError=ChHoldErrorDuringTest
+
+[HpsTest2MakeCall]
+type=Call
+DestinationNumber=HpsTestPhoneNumber
+PartyName="TestCallConsHold"
+SipHeader="X-Sonant-TransferID=HpsTransferID"
+OnCallError=ChMakeCallError
+
+[HpsTest2TakeInboundOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=ChHoldErrorDuringTest
+
+[HpsTest2BridgeCalls]
+type=CallControl
+Command=Bridge
+OnKeyA=ExitBridgedCallOnA
+OnKeyD=ExitBridgedCallOnD
+OnError=StHoldErrorDuringTest
+
+! Wait forever until the calls terminate
+
+[HpsTest2BridgeFinished]
+type=Log
+Next=RunAnotherTest
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!! MainMenu 4: RecordFileTest  !!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RecordFile]
+type=Record
+Msg="RecordingTest.vox"
+FileName="TestRecording.vox"
+PlayBeep=True
+LogAudioEnergy=True
+AudioProfileName="Record"
+ResultVar=RecordBlockResult
+
+[RecordFileFinished]
+type=Log
+var=RecordBlockResult
+
+[CheckRecordResult]
+type=branch
+var=RecordBlockResult
+1=PlayRecordedFile
+2=PlayRecordedFile
+next="NoFileRecorded"
+
+[PlayRecordedFile]
+type=Play
+msg="TestToneOneMw30mS"
+Msg="TestRecording.vox"
+msg="TestToneOneMw30mS"
+
+[PostRecordPause]
+type=Pause
+next=RunAnotherTest
+
+[NoFileRecorded]
+type=play
+msg="NoFileRecorded"
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!  MainMenu 5: Misc Tests  !!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[MiscTests]
+type=Menu
+msg="MiscTests"
+Msg="MiscTestsMenu"
+!OnKey1=TestDll                ! Call the Test DLL
+OnKey2=TestSendDtmf	          ! Send DTMF
+OnKey3=StoreApplicationEvent  ! Store an application event
+OnKey4=JavaScriptTests        ! Javascrpt block
+OnKey5=VarManagerTests		  ! Variable Manager block
+OnKeyStar=MiscTests           ! Play menu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.1 - Call the test DLL
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+![TestDll]
+!type=ChangeVariable
+!BasicTest_Variable="TestVariable"
+!
+![CallTheDll]
+!type=ExecuteRoutine
+!DLL="BasicIvrTest.DLL"
+!Routine="Test"
+!
+![TestDllResults]
+!type=Branch
+!var=BasicTest_Variable
+!Passed=DllTestOK
+!
+![DllTestFailed]
+!type=Play
+!msg="TestFailed"
+!
+![LogDllReturnedText]
+!type=Log
+!Var=BasicTest_LogText
+!next=RunAnotherTest
+!
+![DllTestOk]
+!type=Play
+!msg="TestPassed"
+!next=RunAnotherTest
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.2 - Send DTMF to the caller
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestSendDtmf]
+type=Dial
+DialString=DtmfString
+
+[LogSendDtmf]
+type=Log
+Var=DtmfString
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.3 - Store an Application Event
+!             named "TestEvent"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[StoreApplicationEvent]
+type=Play
+Msg="AddingScriptEvent"
+
+[StoreAppEvent]
+type=Log
+LogType=ScriptEvent
+LogMsg="TestEvent"
+next=RunAnotherTest
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.3 - Store an Application Event
+!             named "TestEvent"
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4: JavaScript Test                !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[JavaScriptTests]
+type=Menu
+msg="JavaScriptBlockTest"
+OnKey1=EnableJavaScriptTestMode	
+OnKey2=DisableJavaScriptTestMode	
+OnKey3=JavaScriptExecuteTest
+OnKey4=JavaScriptSaveTestData
+OnKey5=JavaScriptArrayTest
+!OnKeyStar=PlayDevTestsMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4.1 - Enable Global JavaScript TestMode
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[EnableJavaScriptTestMode]
+type=ChangeVariable
+JavaScriptTestMode="T"
+
+[EnableJavaScriptTestModePlay]
+type=play
+Msg="GlobalTestModeEnabled"
+next=SetJavaScriptTestMode
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4.2 - Disable Global JavaScript Test Mode
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[DisableJavaScriptTestMode]
+type=ChangeVariable
+JavaScriptTestMode="F"
+
+[DisableJavaScriptTestModePlay]
+type=play
+Msg="GlobalTestModeDisabled"
+
+[SetJavaScriptTestMode]
+type=JavaScript
+Command=SetGlobalTestMode
+Var=JavaScriptTestMode
+next=JavaScriptTests
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4.3 - JavaScript Execute Test
+!  If global Test Mode is false, it executes 
+!  executes GetScalarData method.  If 
+!  Test Mode is true, it returns test data.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[JavaScriptExecuteTest]          !commented out until data defs in db
+type=log
+logmsg="temp log"
+
+!type=JavaScript
+!Command=Execute
+!DataDefinition=BasicTestGetScalarData
+!TestMode=UseTestData
+!OnJsError=JavaScriptFailure
+
+[CheckJavaScriptStatus]
+type=log
+var=BasicTestJs_Status,BasicTestJs_ScriptOutput
+next=JavaScriptTests
+
+[JavaScriptFailure]
+type=Play
+Msg="JavaScriptFailure"
+next=JavaScriptTests
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4.4 - JavaScript Save Test Data Test
+!  Executes GetScalarData method & saves data
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[JavaScriptSaveTestData]          !commented out until data defs in db
+type=log
+logmsg="temp log"
+
+!type=JavaScript
+!Command=Execute
+!DataDefinition=BasicTestGetScalarData
+!TestMode=SaveTestData
+!OnJsError=JavaScriptFailure
+next=CheckJavaScriptStatus
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.4.5 - JavaScript Execute Test
+!  Executes GetArrayData method.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[JavaScriptArrayTest]          !commented out until data defs in db
+type=log
+logmsg="temp log"
+
+!type=JavaScript
+!Command=Execute
+!DataDefinition=BasicTestGetArrayData
+!TestMode=UseTestData
+!OnJsError=JavaScriptFailure
+
+[CheckJavaScriptArray]
+type=log
+var=BasicTestJs_Status,BasicTestJs_ScriptOutput
+next=JavaScriptTests
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 5.5: Variable Manager Tests                       !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The VarList contains one missing var (TestVmVar3) and one duplicate
+[VarManagerTests]
+type=VariableManager
+VarList="TestVmVar1,TestVmVar2,TestVmVar3"
+OnError=VmError
+
+[VMTest1Log]
+type=Log
+Var=TestVmVar1,TestVmVar2,TestVmVar3
+next=RunAnotherTest
+
+[VmError]
+type=Log
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!              MainMenu 6: Acd Test                       !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdTestMenu]
+type=Menu
+msg="AcdTests"
+msg="AcdTestsMenu"
+OnKey1=AcdRouteTest			! Route caller to ACD
+OnKey2=AcdRouteTestCallback	! Route caller to ACD with Callback option
+OnKey3=AcdRouteTestTimer    ! Route caller to ACD. 10 sec call timer.
+OnKey4=AcdMobileLogIn		! Mobile agent wants login
+OnKey5=AcdMobileLogOut		! Mobile agent wants logout
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="AcdTestsMenu"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 6.1 - Route call to SonantTest
+!  Caller is routed after "PleaseHold" completes. !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdRouteTest]
+type=play
+msg="PleaseHoldGeneric"
+WaitForMsg=TRUE
+
+[SetAcdCallReference]
+type=ChangeVariable
+@CallReference="AcdCall"
+CheckRtpStats=0
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller.  Note that this block never
+!  falls through and executes the Next block.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RouteCaller]
+type=ACD
+Command=RouteCall
+OriginationNumber=8588641450
+RouteName="SonantTest"
+RecordAgentCall=False
+OnError=AcdRouteError
+OnAgentConnecting=AcdAgentConnecting
+OnAgentConnected=AcdAgentConnected
+OnCallReturn=CallReturnFromAcd
+OnTimeout=RouteTimeout
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call Enters Queue
+!   Offer Callback to caller?
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallRouted]
+type=Branch
+var=CallbackOption
+1=EnteredQueueWithCallbackOption
+
+!  Caller will not be offered Callback option
+[EnteredQueueNoCallbackOption]
+type=Acd
+Command=CheckCallStatus
+OnError=CheckCallStatusError
+
+![LogAcdCallStatus]
+!type=Log
+!var=@ACD_CALL_STATUS,@ACD_GROUP_NAME,@ACD_GROUP_STATUS,@ACD_POSITION_IN_QUEUE,@ACD_GROUP_ASA_MIN,@ACD_TIME_IN_QUEUE,@ACD_EST_HOLD_TIME
+!next=StartMusicOnHold
+
+[CheckCallStatusError]
+type=Log
+next=StartMusicOnHold
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Entered Queue With Callback Option
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[EnteredQueueWithCallbackOption]
+type=Play
+msg="CallIsInQueue"
+
+[EnteredQueueGetCallbackInfo]
+type=Acd
+command=GetCallbackInfo
+FifoEnabledVar=CallbackFifoEnabled
+FifoEstimatedTimeVar=CallbackFifoEstimatedTime
+ScheduledEnabledVar=CallbackScheduledEnabled
+ScheduledFirstTimeVar=CallbackScheduledFirstTime
+ScheduledLastTimeVar=CallbackScheduledLastTime
+OnError=LogCallbackInfoError
+
+[LogCallbackInfo]
+type=Log
+Var=CallbackFifoEnabled,CallbackFifoEstimatedTime,CallbackScheduledEnabled,CallbackScheduledFirstTime,CallbackScheduledLastTime,@AcdEstHoldTimeMin
+
+[CheckFifoCallbackEnabled]
+type=Branch
+var=CallbackFifoEnabled
+0=FifoCallbackNotEnabled
+
+! Reach here when ACD reports that FIFO callback is enabled
+[PlayFifoCallbackInfo]
+type=Play
+Msg="CallbackFifoInfo1"
+MsgString=@AcdEstHoldTimeMin%"|N"
+Msg="CallbackFifoInfo2"
+MsgString=CallbackFifoEstimatedTime%"|D|h:n a/p"
+
+! Give caller the option to take a FIFO callback
+[ChooseCallbackMenu]
+type=Menu
+msg="ChooseCallbackMenu"
+OnKey1=CallerWantsCallback	
+TimeoutSec=10
+TimeOutMsg="Silence"
+MaxTimeOuts=0
+
+[CallerDoesNotWantCallback]
+type=Play
+Msg="DidNotRequestCallback"
+next=StartMusicOnHold
+
+[CallerWantsCallback]
+type=Play
+Msg="RequestedCallback"
+
+[RequestFifoCallback]
+type=Acd
+command=RequestCallback
+CallbackType=FIFO
+CallbackNumberVar=CallbackNumber
+OriginationNumber=CallbackOrigNumber
+OnError=LogCallbackInfoError
+
+! Did ACD accept the callback?
+[CheckFifoCallbackCallState]
+type=Branch
+var=@AcdCallStatus
+12=FifoCallbackStatusOk
+
+[LogCallbackInfoError]
+type=Play
+Msg="AcdError"
+next=AcdTestMenu
+
+!  Callback status is good.  Inform caller and drop call
+[FifoCallbackStatusOk]
+type=Play
+Msg="TerminatingInboundCall"
+WaitforMsg=True
+next=EndCall
+
+! Fifo Callback is not enabled in ACD.  Play music and keep in queue.
+[FifoCallbackNotEnabled]
+type=Log
+
+[StartMusicOnHold]
+type=Play
+msg="Music"
+WaitForMsg=TRUE
+Next=StartMusicOnHold
+
+[WaitForAcdServer]
+type=Pause
+next=WaitForAcdServer
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Call is connecting to ACD Agent.  Play ring. 
+!     Queue 4 rings (4X6 sec) to limit logging.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnecting]
+type=Play
+msg="RingTone"
+msg="RingTone"
+msg="RingTone"
+msg="RingTone"
+WaitForMsg=TRUE
+Next=AcdAgentConnecting
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call is connected to ACD Agent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnected]
+type=Pause
+PauseSec=6
+Next=AcdAgentConnected2
+
+{
+[DoWeNeedToCheckRtpStats]
+type=branch
+var=CheckRtpStats=0
+1=CheckRxPacketCount
+next=AcdAgentConnected
+
+! Optional RTP Stat check six seconds into call
+[CheckRxPacketCount]
+type=Utility
+Command="GetRtpStats"
+Parameter="RtpStatAudioPacketsRx"
+
+[CheckRtpPacketCount]
+type=branch
+var=RtpStatAudioPacketsRx
+100=LogLowPacketCount
+OnAboveRange=AcdAgentConnected
+
+[LogLowPacketCount]
+type=Log
+LogMsg="*** Low Rx Packet Count ***"
+}
+
+[AcdAgentConnected2]
+type=Pause
+PauseSec=30
+next=AcdAgentConnected
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Inbound Call has returned from ACD 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnFromAcd]
+type=Branch
+var=@AcdRouteCode
+0=CallReturnNoRoute
+1=CallReturnErrorRoute
+2=CallReturnDefaultRoute
+3=CallReturnQueueShutdown
+4=CallReturnQueueOverload
+5=CallReturnEndCall	
+6=CallReturnAgentTransfer	
+7=CallReturnReleaseKeyPressed
+8=CallReturnConferenceConnected
+9=CallReturnAgentAwol
+12=AgentRouteToTestMenu
+
+! Falling through means an unknown RouteCode  
+[PlayCallReturnUnknown]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnUnexpectedRouteCode"
+MsgString=@AcdRouteCode%"|N|0"
+next=ThankYouGoodbyeExit
+
+[CallReturnNoRoute]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnNoRoute"
+next=ThankYouGoodbyeExit
+
+[CallReturnErrorRoute]
+type=Log
+LogMsg="Error Route"
+next=ThankYouGoodbyeExit
+
+[CallReturnDefaultRoute]
+type=Log
+LogMsg="DefaultRoute"
+next=ThankYouGoodbyeExit
+
+[CallReturnQueueShutdown]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnQueueShutdown"
+next=ThankYouGoodbyeExit
+
+[CallReturnQueueOverload]
+type=Log
+LogMsg="Queue Overload"
+next=ThankYouGoodbyeExit
+
+! Agent ended call
+[CallReturnEndCall]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnEndCall"
+next=RunAnotherTest
+	
+[CallReturnAgentTransfer]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnAgentTransfer"
+next=StartMusicOnHold
+	
+[CallReturnReleaseKeyPressed]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnReleaseKeyPressed"
+next=ThankYouGoodbyeExit
+
+[CallReturnConferenceConnected]
+type=Log
+LogMsg="ConferenceConnected"
+next=ThankYouGoodbyeExit
+
+[RouteTimeout]
+type=Play
+msg="AcdTimeout"
+next=RunAnotherTest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller after AWOL
+!  Uses Urgent priority.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnAgentAwol]
+type=Play
+msg="AcdCallReturn"
+msg="CallReturnAgentAwol"
+
+[RouteCallerAfterAwol]
+type=ACD
+Command=RouteCall
+OriginationNumber=8588641450
+RouteName="SonantTest"
+Priority="Urgent"
+OnError=AcdRouteError
+next=StartMusicOnHold
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Agent Routes
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AgentRouteToTestMenu]
+type=Log
+LogMsg="Call routed by agent to BPP Menu"
+next=ThankYouGoodbyeExit
+
+
+[AcdRouteError]
+type=Play
+FlushPlayQueue=True
+Msg="AcdRouteError"
+Next=ThankYouGoodbyeExit
+
+[AcdError]
+type=Play
+FlushPlayQueue=True
+msg="SystemProblem"
+WaitForMsg=TRUE
+Next=ThankYouGoodbyeExit
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 6.2 - Route call to SonantTest w/Callback
+!  Works like 6.1, but provides Callback option.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdRouteTestCallback]
+type=play
+msg="PleaseHoldGeneric"
+WaitForMsg=TRUE
+
+[SetAcdCallbackOption]
+type=ChangeVariable
+CallbackOption=1
+CheckRtpStats=1
+next=RouteCaller
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 6.3 - Route call to SonantTest
+!  Works like 6.1, but with a 10 sec MaxCall timer.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdRouteTestTimer]
+type=play
+msg="PleaseHoldGeneric"
+WaitForMsg=TRUE
+
+[SetAcdCallReferenceTimer]
+type=ChangeVariable
+@CallReference="AcdCall Timer"
+CheckRtpStats=1
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller.  Note that this block never
+!  falls through and executes the Next block.
+!  Note that OnAgent ... events were not defined.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RouteCallerTimer]
+type=ACD
+Command=RouteCall
+OriginationNumber=8588641450
+RouteName="SonantTest"
+RecordAgentCall=False
+!MaxCallSec=8;
+OnError=AcdRouteError
+OnTimeout=RouteTimeout
+next=StartMusicOnHold
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 6.4 - Mobile Agent Log In
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdMobileLogIn]
+type=GetDigits
+Msg="EnterAgentIdAndPasscode"
+Var=AgentCredentials
+Terminator=#
+MinDigits=3
+MaxDigits=20
+TimeOutSec=20
+
+
+[RequestLogin]
+type=ACD
+Command=LoginMobileAgent
+Var=AgentCredentials
+!OnError=AcdLoginOutError
+OnError=Goodbye
+
+[LogInSuccess]
+type=Play
+Msg="LoginSuccess"
+next=AcdTestMenu
+
+![AcdLoginOutError]
+!type=Branch
+!Var="@Result"
+!0=AcdTestMenu
+!3=AlreadyLoggedIn
+!19=AlreadyLoggedOut
+!20=AgentCredentialsNotValid
+!next=AcdTestMenu
+
+[AlreadyLoggedIn]
+type=Play
+Msg="AlreadyLoggedIn"
+next=AcdTestMenu
+
+[AlreadyLoggedOut]
+type=Play
+Msg="AlreadyLoggedOut"
+next=AcdTestMenu
+
+[AgentCredentialsNotValid]
+type=Play
+Msg="AgentCredentialsNotValid"
+next=AcdTestMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 6.5 - Mobile Agent Log Out
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdMobileLogOut]
+type=GetDigits
+Msg="EnterAgentIdAndPasscode"
+Var=AgentCredentials
+Terminator=#
+MinDigits=3
+MaxDigits=30
+TimeOutSec=20
+
+[RequestLogOut]
+type=ACD
+Command=LogOutMobileAgent
+Var="AgentCredentials"
+!OnError=AcdLoginOutError
+
+[LogOutSuccess]
+type=Play
+Msg="LogOutSuccess"
+next=AcdTestMenu
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!  MainMenu:7 CvpBlockTests    !!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CvpBlockTests]
+type=Menu
+msg="CvpBlockTests"
+OnKey1=GetDigitsTestMenu	
+OnKey2=PauseBlockTest
+OnKey3=RestApiTest
+OnKeyStar=PlayBlockTestsMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+[PlayBlockTestsMenu]
+type=Play
+Msg="BlockTestsMenu"
+Next=CvpBlockTests
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1- GetDigits Block Test Menu
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTestMenu]
+type=Menu
+msg="GetDigitsTests"
+FlushKeys=true
+OnKey1=GetDigitsTest1	
+OnKey2=GetDigitsTest2	
+OnKey3=GetDigitsTest3	
+OnKey4=GetDigitsTest4
+OnKey5=GetDigitsTest5
+OnKeyStar=PlayBlockTestsMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1.1 - GetDigits Test 1: 
+!     4 min, 4 max, no terminator, default timeout
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTest1]
+type=getDigits
+Msg="GetDigitsTestNumber"
+MsgString="vvsystem.vap|I|1"
+Var=DigitEntry
+CountVar=CountValue
+MinDigits=4
+MaxDigits=4
+MaxTimeouts=0
+OnMaxTimeouts=PlayMaxTimeouts
+Next=PlayGetDigitsResult
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1.2 - GetDigits Test 2: 
+!     No min, 4 digits max, no terminator, 2 5-sec timeout
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTest2]
+type=getDigits
+Msg="GetDigitsTestNumber"
+MsgString="vvsystem.vap|I|2"
+Var=DigitEntry
+CountVar=CountValue
+FlushKeys=true
+MaxDigits=4
+MaxDigitsMsg="MaxDigitsMsg"
+TimeOutSec=5
+TimeoutMsg="BlockTimeoutMsg"
+MaxTimeouts=2
+OnMaxTimeouts=PlayMaxTimeouts
+Next=PlayGetDigitsResult
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1.3 - GetDigits Test 3: 
+!     2 digits min, 4 digits max, # terminator, 2 5-sec timeout
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTest3]
+type=getDigits
+Msg="GetDigitsTestNumber"
+MsgString="vvsystem.vap|I|3"
+Var=DigitEntry
+CountVar=CountValue
+FlushKeys=true
+MaxDigits=4
+MaxDigitsMsg="MaxDigitsMsg"
+MinDigits=2
+Terminator=#
+TimeOutSec=5
+TimeoutMsg="BlockTimeoutMsg"
+MaxTimeouts=2
+OnMaxTimeouts=PlayMaxTimeouts
+Next=PlayGetDigitsResult
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1.4 - GetDigits Test 4: 
+!     No min, 4 digits, Max value = 5000, Min value=1000,
+!     no terminator, 1 5-sec timeout
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTest4]
+type=getDigits
+Msg="GetDigitsTestNumber"
+MsgString="vvsystem.vap|I|4"
+Var=DigitEntry
+CountVar=CountValue
+FlushKeys=true
+MaxDigits=4
+MaxDigitsMsg="MaxDigitsMsg"
+MaxValue=5000
+MaxValueMsg="MaxValueMsg"
+!MaxTimeouts=1
+MinValue=1000
+MinValueMsg="MinValueMsg"
+TimeOutSec=5
+TimeoutMsg="BlockTimeoutMsg"
+MaxTimeouts=2
+OnMaxTimeouts=PlayMaxTimeouts
+Next=PlayGetDigitsResult
+
+ 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.1.5 - GetDigits Test 5: 
+!     Defines all OnKey parameters, 1 5-sec timeout
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[GetDigitsTest5]
+type=getDigits
+Msg="GetDigitsTestNumber"
+MsgString="vvsystem.vap|I|5"
+Var=DigitEntry
+CountVar=CountValue
+FlushKeys=true
+OnKey0=OnKey0Block
+OnKey1=OnKey1Block
+OnKey2=OnKey2Block
+OnKey3=OnKey3Block
+OnKey4=OnKey4Block
+OnKey5=OnKey5Block
+OnKey6=OnKey6Block
+OnKey7=OnKey7Block
+OnKey8=OnKey8Block
+OnKey9=OnKey9Block
+OnKeyA=OnKeyABlock
+OnKeyB=OnKeyBBlock
+OnKeyC=OnKeyCBlock
+OnKeyD=OnKeyDBlock
+OnKeyPound=OnKeyPoundBlock
+OnKeyStar=OnKeyStarBlock
+TimeOutSec=5
+TimeoutMsg="BlockTimeoutMsg"
+MaxTimeouts=2
+OnMaxTimeouts=PlayMaxTimeouts
+
+[GetDigitsTest5Failed]
+type=Play
+Msg="TestFailed"
+Next=PlayGetDigitsResult
+
+[OnKey0Block]
+type=Play
+Msg="OnKey0"
+Next=GetDigitsTestMenu
+
+[OnKey1Block]
+type=Play
+Msg="OnKey1"
+Next=GetDigitsTestMenu
+
+[OnKey2Block]
+type=Play
+Msg="OnKey2"
+Next=GetDigitsTestMenu
+
+[OnKey3Block]
+type=Play
+Msg="OnKey3"
+Next=GetDigitsTestMenu
+
+[OnKey4Block]
+type=Play
+Msg="OnKey4"
+Next=GetDigitsTestMenu
+
+[OnKey5Block]
+type=Play
+Msg="OnKey5"
+Next=GetDigitsTestMenu
+
+[OnKey6Block]
+type=Play
+Msg="OnKey6"
+Next=GetDigitsTestMenu
+
+[OnKey7Block]
+type=Play
+Msg="OnKey7"
+Next=GetDigitsTestMenu
+
+[OnKey8Block]
+type=Play
+Msg="OnKey8"
+Next=GetDigitsTestMenu
+
+[OnKey9Block]
+type=Play
+Msg="OnKey9"
+Next=GetDigitsTestMenu
+
+[OnKeyABlock]
+type=Play
+Msg="OnKeyA"
+Next=GetDigitsTestMenu
+
+[OnKeyBBlock]
+type=Play
+Msg="OnKeyB"
+Next=GetDigitsTestMenu
+
+[OnKeyCBlock]
+type=Play
+Msg="OnKeyC"
+Next=GetDigitsTestMenu
+
+[OnKeyDBlock]
+type=Play
+Msg="OnKeyD"
+Next=GetDigitsTestMenu
+	  
+[OnKeyPoundBlock]
+type=Play
+Msg="OnKeyPound"
+Next=GetDigitsTestMenu
+
+[OnKeyStarBlock]
+type=Play
+Msg="OnKeyStar"
+Next=GetDigitsTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Play the length and content of GetDigits
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[PlayGetDigitsResult]
+type=Play
+Msg="YouEntered"
+MsgString=CountValue%"|N"
+Msg="Digits"
+Msg="Silence"
+MsgString=DigitEntry%"|C"
+Next=GetDigitsTestMenu
+
+
+! GetDigits Error Handlers 
+
+[PlayMaxTimeouts]
+type=Play
+Msg="MaxTimeoutsMsg"
+Next=GetDigitsTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  7.2 - Pause Block Test
+!     Defines OnTime parameter, 300-sec pause
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[PauseBlockTest]
+type=Play
+Msg="PauseBlockTest"
+
+[PauseBlockTestExecute]
+Type=Pause
+OnTime:0900=PauseBlockTimeEvent
+PauseSec=300
+Terminator="#"
+Next=CvpBlockTests
+
+[PauseBlockTimeEvent]
+type=Play
+Msg="PauseBlockTimeEvent"
+Next=CvpBlockTests
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Test 7.3 - REST API + ForEach Test
+!
+!  Calls MNCIS EligibleCasesForPayments API (Basic auth).
+!  Parses the JSON response, then uses ForEach to iterate
+!  over cases (outer loop) and payors (inner loop), logging
+!  key fields at each level.
+!
+!  Flow:
+!    RestApiTest
+!      ? RestApiLogStatus
+!        ? IterateCases  (MoveNext, outer loop)
+!            OnSuccess ? ProcessCase (ElementScript: extract case fields + payors JSON)
+!              ? LogCase
+!                ? StartPayorIteration (MoveFirst, resets inner loop per case)
+!                    OnSuccess ? LogPayor
+!                      ? IteratePayors (MoveNext, inner loop)
+!                          OnSuccess ? LogPayor  (loops back)
+!                          OnComplete ? IterateCases  (advance outer loop)
+!                    OnComplete ? IterateCases  (zero payors: advance outer loop)
+!            OnComplete ? RestApiTestDone
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! --- Step 1: Call the API ---
+[RestApiTest]
+type=RestApi
+Method=GET
+Url="https://devqais.courts.state.mn.us/deve/webservices/MncisPayments/v1/EligibleCasesForPayments?CaseNumber=43-VB-25-4"
+AuthType=Basic
+AuthUsername="courts.state.mn.us/PaymentService"
+AuthPassword="A+g6+NA4Jb8D%3%3$c~2~!87"
+!Headers="accept": "text/plain"
+TimeoutSeconds=30
+ResponseScript="""
+    var cases = JsonDocument.Parse(response).RootElement.GetProperty("cases");
+	
+    vars["ApiCasesJson"] = cases.GetRawText();
+    vars["ApiCaseCount"] = cases.GetArrayLength().ToString();
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=RestApiTestError
+Next=RestApiLogStatus
+
+! --- Log API outcome before iterating ---
+[RestApiLogStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiCaseCount
+Next=IterateCases
+
+! --- Outer loop: iterate cases ---
+[IterateCases]
+type=ForEach
+ArrayVar=ApiCasesJson
+CountVar=ApiCaseCount
+CurrentVar=ApiCaseIdx
+ElementScript="""
+    vars["ApiCaseNumberResult"] = element.GetProperty("caseNumber").GetString() ?? "";
+    vars["ApiCaseCategory"]     = element.GetProperty("caseCategory").GetString() ?? "";
+    vars["ApiCaseType"]         = element.GetProperty("baseCaseType").GetString() ?? "";
+    vars["ApiCaseEligible"]     = element.GetProperty("caseIsEligibleForPayment").GetBoolean().ToString();
+    vars["ApiCaseStatus"]       = element.GetProperty("currentCaseStatusDescription").GetString() ?? "";
+	
+    var payors = element.GetProperty("payors");
+    vars["ApiPayorsJson"]  = payors.GetRawText();
+    vars["ApiPayorCount"]  = payors.GetArrayLength().ToString();
+"""
+OnSuccess=LogCase
+OnError=RestApiTestError
+OnComplete=RestApiTestDone
+
+! --- Log case-level fields ---
+[LogCase]
+type=Log
+Var=ApiCaseIdx,ApiCaseCount,ApiCaseNumberResult,ApiCaseCategory,ApiCaseType,ApiCaseEligible,ApiCaseStatus,ApiPayorCount
+Next=IteratePayors
+
+! --- Start inner loop at first payor (resets state for each case) ---
+[IteratePayors]
+type=ForEach
+ArrayVar=ApiPayorsJson
+ElementScript="""
+    vars["ApiPayorName"] = element.GetProperty("name").GetString() ?? "";
+    vars["ApiPayorEligible"] = element.GetProperty("payorIsEligibleForPayment").GetBoolean().ToString() ?? "";
+    vars["ApiPayorAmount"] = element.GetProperty("currentAmountDue").GetDecimal().ToString() ?? "";
+"""
+OnSuccess=LogPayor
+OnError=RestApiTestError
+OnComplete=IterateCases
+
+! --- Log payor-level fields ---
+[LogPayor]
+type=Log
+Var=ApiPayorIdx,ApiPayorCount,ApiPayorName,ApiPayorEligible,ApiPayorAmount
+Next=IteratePayors
+
+! --- All cases processed ---
+[RestApiTestDone]
+type=Log
+LogMsg="RestApi+ForEach test complete"
+Next=CvpBlockTests
+
+! --- API call failed ---
+[RestApiTestError]
+type=Log
+Var=ApiStatusCode,ApiError
+Next=CvpBlockTests
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  MainMenu 8: **** Unused ****
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  MainMenu 9: Developer Tests Menu
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[DevTests]
+type=Menu
+msg="DevTests"
+OnKey1=TestScriptFeatures	
+OnKey2=TestFileCache	
+OnKeyStar=PlayDevTestsMenu
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+next=RunAnotherTest
+
+[PlayDevTestsMenu]
+type=Play
+Msg="DevTestMenu"
+Next=DevTests
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!! Test 9.1  Test Script Features  !!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestScriptFeatures]
+type=Menu
+msg="ScriptFeaturesMenu"
+OnKey1=TestPlayOption	
+!OnKey2=Test	
+OnKeyStar=DevTests
+OnKeyPound=MainMenu
+TimeoutSec=20
+TimeOutMsg="Silence"
+MaxTimeOuts=10
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!! Test 9.1.1  Test Play Options   !!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! This test has two parts:
+! 	Part 1: Allow option 1 and not allow option 2
+!   Part 2: Not allow option 1 and allow option 2
+!
+! The typical test scenario would be to press the disallowed option 2 at the first menu.
+! This should fail. Now press allowed option 1 and this should pass.  You'll now be at
+! the second part where you can test diallowed option 1 and allowed option 2.
+[TestPlayOption]
+
+type=changeVariable
+@playOption1=1
+@playOption2=0
+@playOption3=0
+
+[Test1Option1Only]
+type=recognize
+PromptMsgDTMF="YourOptionsAre","Option1Allowed"|X|1,"Option2NotAllowed"|X|2,"Option3NotAllowed"|X|3,"AndNoOtherOptions"
+OnKey1=Option1Entered
+OnKey2=Test1Option2NotAllowed
+OnKey3=TestOption3NotAllowed
+BadKeyMsg="Option2NotAllowed"
+OnDtmfError=OptionsTestDtmfError
+Next=TestScriptFeatures
+
+[Option1Entered]
+type=Play
+Msg="Option1Entered"
+
+! Part 2: Not allow option 1 and allow option 2
+[SetPlayOption2Only]
+type=changeVariable
+@playOption1=0
+@playOption2=1
+
+[Test2Option2Only]
+type=recognize
+PromptMsgDTMF="YourOptionsAre","Option1NotAllowed"|X|1,"Option2Allowed"|X|2,"AndNoOtherOptions"
+OnKey1=Test2Option1NotAllowed
+OnKey2=Test2Option2Allowed
+BadKeyMsg="Option1NotAllowed"
+OnDtmfError=OptionsTestDtmfError
+Next=TestScriptFeatures
+
+[Test2Option2Allowed]
+type=Play
+Msg="Option2Allowed"
+Next=TestScriptFeatures
+
+[TestOption3NotAllowed]
+type=Play
+Msg="Option3NotAllowed"
+Next=TestScriptFeatures
+! Play Option Test Error blocks
+
+! Test 1 Fails: Allows Option 2
+[Test1Option2NotAllowed]
+type=Play
+Msg="Option2NotAllowed"
+Next=Test1Option1Only
+
+! Test 2 Fails: Allows Option 1
+[Test2Option1NotAllowed]
+type=Play
+Msg="Option1NotAllowed"
+Next=Test2Option2Only
+
+[OptionsTestDtmfError]
+type=Play
+Msg="OptionsTestDtmfError"
+Next=TestScriptFeatures
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!! Test 9.2   TestFileCache  !!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestFileCache]
+type=play
+msg="TestCache"
+WaitForMsg=TRUE
+next=TestFileCache	! Loop forever while manually changing/deleting the file
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RunAnotherTest]
+type=Play
+msg="Silence"
+next=MainMenu
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Start ACD Callback Call
+!	  Load script vars from inbound call and set 'On' vars.
+!     Unlike RouteCall, this command does go to Next block.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[StartAcdCallback]
+type=Acd
+Command=StartCallback
+OnAgentConnecting=AcdAgentConnecting
+OnAgentConnected=AcdAgentConnected
+OnCallReturn=CallReturnFromAcdCallback
+OnError=CallbackVarError
+
+! Log to test that callback vars were loaded
+[LogCallbackVars]
+type=Log
+Var=CallbackNumber,CallbackOrigNumber
+
+[CallbackStatusCalling]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=Calling
+OnError=CallbackStatusError
+
+[MakeCallbackCall]
+type=Call
+DestinationNumber=CallbackNumber
+OriginationNumber=CallbackOrigNumber
+CallReference="CallbackCall"
+NoAnswerTimeoutSec=15
+OnCallError=CallbackCallError
+
+! Production scripts would wait for an answer here ...
+[WaitForCallbackParty]
+type=Pause
+PauseSec=1
+
+! Callback party is connected ...
+[CallbackStatusConnected]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=Answered
+OnError=CallbackStatusError
+
+[StartCallbackDialog]
+type=Play
+msg="CallbackMsg"
+waitforMsg=True
+
+[GetCallbackFinalStatus]
+type=GetDigits
+msg="CallbackFinalStatusMenu"
+Var=CallbackFinalStatus
+MinDigits=1
+Terminator="@"
+TimeOutSec=1
+MaxTimeouts=1
+OnMaxTimeouts=CallbackFinalStatusError
+Next=CallbackStatusReady
+
+[CallbackFinalStatusError]
+type=ChangeVariable
+CallbackFinalStatus=1
+
+! Setting status to Party_Ready will make call eligible for agent
+[CallbackStatusReady]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=PartyReady
+OnError=CallbackStatusError
+
+[WaitForCallbackAgent]
+type=Pause
+PauseSec=300
+Next=Goodbye 
+
+[CallbackVarError]
+type=Log
+LogMsg="Callback vars could not be loaded. Terminating callback"
+Next=FinalBlock
+
+[CallbackCallError]
+type=Log
+LogMsg="Callback error"
+Next=FinalBlock
+
+[CallbackStatusError]
+type=Log
+LogMsg="Callback Status error"
+Next=FinalBlock
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Callback Call has returned from ACD
+!   This section updates the callback status.  If
+!   the call returns due to normal agent disconnect,
+!   terminate the callback call.  Other routes,
+!   especially Agent user routes are handled just like
+!   non-callback calls. 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnFromAcdCallback]
+type=Branch
+var=CallbackFinalStatus
+1=CallbackComplete
+2=CallbackLeftMessage
+3=CallbackWrongParty
+4=CallbackPartyAbandoned
+5=CallbackPartyCancelled
+next=EndCall
+
+[CallbackComplete]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=CallbackComplete
+OnError=CallbackReturnStatusError
+next=EndCallbackCallWhenAgentTerminates
+
+[CallbackLeftMessage]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=LeftMessage
+OnError=CallbackReturnStatusError
+next=EndCallbackCallWhenAgentTerminates
+
+[CallbackWrongParty]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=WrongParty
+OnError=CallbackReturnStatusError
+next=EndCallbackCallWhenAgentTerminates
+
+[CallbackPartyAbandoned]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=PartyAbandoned
+OnError=CallbackReturnStatusError
+next=EndCallbackCallWhenAgentTerminates
+
+[CallbackPartyCancelled]
+type=Acd
+Command=UpdateCallbackStatus
+Parameter=PartyCancelled
+OnError=CallbackReturnStatusError
+next=EndCallbackCallWhenAgentTerminates
+
+
+[EndCallbackCallWhenAgentTerminates]
+type=Branch
+var=@AcdRouteCode
+5=EndCall	
+Next=CallReturnFromAcd
+
+[CallbackReturnStatusError]
+type=Log
+LogMsg="Callback Return Status error"
+Next=EndCall
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Start Maintenance Mode Call
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[MaintenanceMode]
+type=Log
+LogType=ScriptEvent
+LogMsg="MaintenanceMode"
+
+[PlayMaintenanceMode]
+type=Play
+msg="MaintenanceModeMsg"
+waitforMsg=True
+next=Goodbye
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Start Overload Mode Call
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[OverloadMode]
+type=Play
+msg="OverloadModeMsg"
+waitforMsg=True
+next=Goodbye
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	TestComplete
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestComplete]
+type=Log
+
+[ThankYouGoodbyeExit]
+type=play
+msg="Thankyou"
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=TRUE
+Next=EndCall
+
+[MenuError]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallSec]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallErrors]
+type=log
+next=Goodbye
+
+[ExitOnScriptError]
+type=log
+next=Goodbye
+
+[EndCallWithDisconnectHandler]                                 
+type=SetGlobals
+AllowOnDisconnect=False
+next=EndCall
+
+[CallDisconnectHandler]
+type=Log
+
+! Disable OnDisconnect
+[EndCall]
+type=SetGlobals
+AllowOnDisconnect=False
+
+! Branch here to end call with the disconnect handler
+[EndCall2]                                 
+type=CallControl
+Command=Disconnect
+
+[FinalBlock]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate
+
+! Comment

@@ -1,0 +1,413 @@
+! Change variable test
+! 
+! test 1 - set variable to string
+! test 2 - set var using another var
+! test 3 - set var to empty string
+! test 4 - append var to var
+! test 5 - Increment numeric
+! test 6 - Decrement numeric
+! Test 7 - increment a string
+! Test 8 - multiple change var in same block
+!
+[ScriptSetup]
+Type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"
+Language="English"
+MaxCallSec=90000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallSec
+OnCallDisconnect=CallDisconnectHandler
+OnScriptError=ExitOnMaxCallSec
+AllowOnDisconnect=True
+LogTrace=True
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=True
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=ExitOnMenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=ExitOnMenuError
+DefaultOnMaxBadValues=ExitOnMenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+[DefineVariables]
+Type=DefineVars
+UserInput=""
+numDigits=0
+ExpectedString="Sonant"
+ExpectedNumber=12345
+TestVar1=""
+TestVar2=""
+SetTestVar="Sonant"
+Expected1="Sonant"
+Expected2="Sonant"
+TestVar3="Sonant"
+Expected3=2
+TestVar4=""
+Customer="Sonant"
+AppendData="Corporation"
+Expected4="SonantCorporation"
+
+! Test 5
+TestVar5=5
+Expected5=6
+
+! Test 6
+TestVar6=5
+Expected6=4
+
+! Test 7
+TestVar7 = "Sonant"
+Expected7="Sonant"
+
+! Test 8
+tvar1=""
+tvar2=""
+tvar3="Sonant"
+tvar4=""
+tvar5=5
+tvar6=5
+
+!================================
+! Test 1 - set variable to string
+[StartTest1]
+type=play
+TTSString="Change Variable block test, version 2"
+TTSString="Test one, set variable to a string"
+
+[Test1]
+type=ChangeVariable
+TestVar1="Sonant"
+
+[CheckTest1Result]
+type=branch
+var=TestVar1
+Expected1=Pass01
+Next=Fail01
+
+[Pass01]
+Type=play
+TTSString="Pass. Variable correctly set to New Value"
+Next=StartTest2
+
+[Fail01]
+type=play
+TTSString="Fail. Variable not set to correct value"
+
+[Fail01Log]
+type=log
+var=TestVar1, Expected1
+Next=StartTest2
+
+!================================
+! Test 1 - set variable to string
+[StartTest2]
+type=play
+TTSString="Test two, set variable to a string from another variable"
+
+[Test2]
+type=ChangeVariable
+TestVar2=SetTestVar
+
+[CheckTest2Result]
+type=branch
+var=TestVar2
+Expected2=Pass2
+Next=Fail2
+
+[Pass2]
+Type=play
+TTSString="Pass. Variable correctly set to Sonant from another variable"
+Next=StartTest3
+
+[Fail2]
+type=play
+TTSString="Fail. Variable not set to correct value"
+
+[Fail2Log]
+type=log
+var=TestVar2, Expected2
+Next=StartTest3
+
+!====================================
+! Test 3 - Set variable to empty string
+[StartTest3]
+type=play
+TTSString="Test three, set a variable to an empty string."
+
+[Test3]
+type=changeVariable
+TestVar3=""
+
+[CheckTest3Result]
+type=branch
+Var=TestVar3
+""=Pass3
+Next=Fail3
+
+[Pass3]
+Type=play
+TTSString="Pass. Variable correctly set to empty string"
+Next=StartTest4
+
+[Fail3]
+type=play
+TTSString="Fail. Variable not set to empty string"
+
+[Fail3Log]
+type=log
+var=TestVar3
+Next=StartTest4
+
+!============================
+! Append string to variable
+[StartTest4]
+type=play
+TTSString="Test four, append string to variable"
+
+[Test4]
+type=changevariable
+TestVar4=Customer%AppendData
+
+[CheckTest4Result]
+type=branch
+var=TestVar4
+Expected4=Pass4
+Next=Fail4
+
+[Pass4]
+type=play
+TTSString="Pass. Append string succeeded."
+Next=StartTest5
+
+[Fail4]
+type=play
+TTSString="Fail, append string failed. "
+
+[LogFail4]
+type=log
+var=Customer,AppendData,TestVar4
+Next=StartTest5
+
+!==============================
+! Increment test
+[StartTest5]
+type=play
+TTSString="Test five, increment a variable"
+
+[Test5]
+type=changeVariable
+Increment=TestVar5
+
+[CheckTest5Result]
+type=branch
+var=TestVar5
+Expected5=Pass5
+Next=Fail5
+
+[Pass5]
+type=play
+TTSString="Pass. Increment succeeded."
+Next=StartTest6
+
+[Fail5]
+type=play
+TTSString="Fail. Check the log file"
+
+[LogFail5]
+type=log
+var=TestVar5, Expected5
+Next=StartTest6
+
+!==============================
+! Deccrement test
+[StartTest6]
+type=play
+TTSString="Test six, decrement a variable"
+
+[Test6]
+type=changeVariable
+Decrement=TestVar6
+
+[CheckTest6Result]
+type=branch
+var=TestVar6
+Expected6=Pass6
+Next=Fail6
+
+[Pass6]
+type=play
+TTSString="Pass. Decrement succeeded."
+Next=StartTest7
+
+[Fail6]
+type=play
+TTSString="Fail. check the log file "
+
+[LogFail6]
+type=log
+var=TestVar6, Expected6
+Next=StartTest7
+
+!==============================
+! Test 7 - Increment string test
+[StartTest7]
+type=play
+TTSString="Test seven, increment a string"
+
+[Test7]
+type=changeVariable
+Increment=TestVar7
+
+[LogTest7]
+type=branch
+var=TestVar7
+Expected7=Pass7
+Next=Fail7
+
+[Pass7]
+type=play
+TTSString="Pass. String not changed"
+Next=StartTest8
+
+[Fail7]
+type=play
+TTSSTring="Fail. String corrupted"
+Next=StartTest8
+
+[StartTest8]
+type=play
+TTSString="Test 8, multiple actions in one change variable block."
+
+!==============================
+! Change many variables
+[Test8]
+type=changeVariable
+tvar1="Sonant"
+tvar2=SetTestVar
+tvar3=""
+tvar4=Customer%AppendData
+increment=tvar5
+decrement=tvar6
+
+[CheckTest8_1]
+type=branch
+var=tvar1
+Expected1=CheckTest8_2
+Next=Fail8_1
+
+[CheckTest8_2]
+type=branch
+var=tvar2
+Expected2=CheckTest8_3
+Next=Fail8_2
+
+[CheckTest8_3]
+type=branch
+var=tvar3
+""=CheckTest8_4
+Next=Fail8_3
+
+[CheckTest8_4]
+type=branch
+var=tvar4
+Expected4=CheckTest8_5
+Next=Fail8_4
+
+[CheckTest8_5]
+type=branch
+var=tvar5
+Expected5=CheckTest8_6
+Next=Fail8_5
+
+[CheckTest8_6]
+type=branch
+var=tvar6
+Expected6=PassTest8
+Next=Fail8_6
+
+[PassTest8]
+type=play
+TTSString="Pass. All variables updated in one block."
+Next=EndCall
+
+[Fail8_1]
+type=play
+TTSString="Fail 8-1"
+Next=Endcall
+
+[Fail8_2]
+type=play
+TTSString="Fail 8-2"
+Next=Endcall
+
+[Fail8_3]
+type=play
+TTSString="Fail 8-3"
+Next=Endcall
+
+[Fail8_4]
+type=play
+TTSString="Fail 8-4"
+Next=Endcall
+
+[Fail8_5]
+type=play
+TTSString="Fail 8-5"
+Next=Endcall
+
+[Fail8_6]
+type=play
+TTSString="Fail 8-6"
+Next=Endcall
+
+
+!=============================
+[ExitOnMaxCallSec]
+type=log
+next=EndCall
+
+[ExitOnMaxCallErrors]
+type=log
+next=EndCall
+
+[ExitOnScriptError]
+type=log
+next=EndCall
+
+[ExitOnMenuError]
+type=Log
+Next=EndCall
+
+[ExitOnMaxBadKeys]
+type=Log
+Next=EndCall
+
+[CallDisconnectHandler]
+type=log
+Next=EndCall
+
+[EndCall]
+type=log
+
+[EndMessage]
+type=play
+TTSString="Thank you, goodbye. Exiting."
+WaitForMsg=TRUE
+
+[TerminateCall]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate

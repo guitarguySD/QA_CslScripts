@@ -1,0 +1,360 @@
+! String Copy Test
+! 
+! test 1 - 
+! test 2 - 
+! test 3 - 
+! test 4 - 
+! test 5 - 
+! test 6 - 
+! Test 7 - 
+! Test 8 - 
+!
+[ScriptSetup]
+Type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"
+Language="English"
+MaxCallSec=90000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallSec
+OnCallDisconnect=CallDisconnectHandler
+OnScriptError=ExitOnMaxCallSec
+AllowOnDisconnect=True
+LogTrace=True
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=True
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=ExitOnMenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=ExitOnMenuError
+DefaultOnMaxBadValues=ExitOnMenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+
+[StartTests]
+type=play
+TTSString="Branch Block Tests"
+
+!================================
+! Test 0 - Compare type integer
+[StartTest0]
+type=play
+TTSString="Test zero, compare type integer."
+
+[Test0Vars]
+type=DefineVars
+Test0Var=5
+
+[TestLog]
+type=log
+var=Test0Var
+
+[Test0Branch]
+type=branch
+CompareType=Integer
+Var=Test0Var
+4=Value0Matches4
+6=Value0Matches6
+OnAboveRange=Value0AboveRange
+OnBelowRange=Value0BelowRange
+
+[Value0Matches4]
+type=play
+ttsstring="Value matches 4"
+Next=StartTest1
+
+[Value0Matches6]
+type=play
+ttsstring="Value matches6"
+Next=StartTest1
+
+[Value0AboveRange]
+type=play
+ttsstring="Value above range"
+Next=endcall
+
+[Value0BelowRange]
+type=play
+ttsstring="Value below range"
+Next=StartTest1
+
+!================================
+! Test 1 - Compare type integer
+[StartTest1]
+type=play
+TTSString="Test one, compare type integer."
+
+[Test1Vars]
+type=DefineVars
+Test1Var=5
+
+[TestBranch]
+type=branch
+CompareType=Integer
+Var=Test1Var
+5=ValueMatches
+OnAboveRange=ValueAboveRange
+OnBelowRange=ValueBelowRange
+
+[ValueMatches]
+type=play
+TTSString="Test Var is "
+MsgString="5"%"|C" 
+TTSSTring=" and it matches"
+Next=ResetValueAbove
+
+[ResetValueAbove]
+type=changeVariable
+Test1Var=6
+Next=TestBranch
+
+[ValueAboveRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test1Var%"|C" 
+TTSString="and it is above 5"
+Next=ResetValueBelow
+
+[ResetValueBelow]
+type=changeVariable
+Test1Var=3
+
+[ValueBelowRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test1Var%"|C" 
+TTSString=" and is below 5"
+Next=StartTest2
+
+!================================
+! Test 2 - Compare type integer
+[StartTest2]
+type=play
+TTSString="Branch test two"
+
+[Test2Vars]
+type=DefineVars
+Test2Var=3
+
+[Test2Branch]
+type=branch
+CompareType=Integer
+Var=Test2Var
+4=ValueIs4
+5=ValueIs5
+6=ValueIs6
+OnAboveRange=Value2AboveRange
+OnBelowRange=Value2BelowRange
+
+
+[Value2BelowRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test2Var%"|C" 
+TTSString=" and is below 4"
+Next=IncrementTest2Var
+
+[IncrementTest2Var]
+type=changeVariable
+Increment=Test2Var
+Next=Test2Branch
+
+[ValueIs4]
+type=play
+TTSString="Test Var is"
+MsgString=Test2Var%"|C" 
+TTSString="and matches."
+Next=IncrementTest2Var
+
+[ValueIs5]
+type=play
+TTSString="Test Var is "
+MsgString=Test2Var%"|C" 
+TTSString="and matches."
+Next=IncrementTest2Var
+
+[ValueIs6]
+type=play
+TTSString="Test Var is "
+MsgString=Test2Var%"|C" 
+TTSString="and matches."
+Next=IncrementTest2Var
+
+[Value2AboveRange]
+type=play
+TTSString="Test var is"
+MsgString=Test2Var%"|C" 
+TTSString="and is above range"
+Next=StartTest3
+
+!================================
+! Test 3 - Compare type String
+[StartTest3]
+type=play
+TTSString="Branch test three, compare type string"
+
+[Test3Vars]
+type=DefineVars
+Test3Var="A"
+
+[Test3Branch]
+type=branch
+CompareType=String
+Var=Test3Var
+"B"=ValueIsB
+"C"=ValueIsC
+"D"=ValueIsD
+OnAboveRange=Value3AboveRange
+OnBelowRange=Value3BelowRange
+
+[Value3BelowRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test3Var%"|C" 
+TTSString=" and is below B"
+Next=IncrementTest3Var
+
+[IncrementTest3Var]
+type=changeVariable
+Test3Var="B"
+Next=Test3Branch
+
+[ValueIsB]
+type=play
+TTSString="Test Var is"
+MsgString=Test3Var%"|C" 
+TTSString="and matches"
+
+[IncrementTest3VarC]
+type=changeVariable
+Test3Var="C"
+Next=Test3Branch
+
+[ValueIsC]
+type=play
+TTSString="Test Var is "
+MsgString=Test3Var%"|C" 
+TTSString="and matches"
+
+[IncrementTest3VarD]
+type=changeVariable
+Test3Var="D"
+Next=Test3Branch
+
+[ValueIsD]
+type=play
+TTSString="Test Var is "
+MsgString=Test3Var%"|C" 
+TTSString="and matches"
+
+[IncrementTest3VarE]
+type=changeVariable
+Test3Var="E"
+Next=Test3Branch
+
+[Value3AboveRange]
+type=play
+TTSString="Test Var is"
+MsgString=Test3Var%"|C" 
+TTSString="and is above range"
+Next=StartTest4
+
+
+!================================
+! Test 4 - Compare type float
+[StartTest4]
+type=play
+TTSString="Branch test four, compare type float"
+
+[Test4Vars]
+type=DefineVars
+Test4Var="3.141"
+
+[Test4Branch]
+type=branch
+CompareType=Float
+Var=Test4Var
+3.141=Value4Matches
+OnAboveRange=Value4AboveRange
+OnBelowRange=Value4BelowRange
+
+[Value4Matches]
+type=play
+TTSString="Test Var is "
+MsgString=Test4Var%"|C" 
+TTSString="and matches"
+Next=ResetVar4
+
+[ResetVar4]
+type=changeVariable
+Test4Var=3.1411
+Next=Test4Branch
+
+[Value4AboveRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test4Var%"|C" 
+TTSString="and is above 3.141"
+Next=ResetVar4b
+
+[ResetVar4b]
+type=changeVariable
+Test4Var=3.140
+Next=Test4Branch
+
+[Value4BelowRange]
+type=play
+TTSString="Test Var is "
+MsgString=Test4Var%"|C" 
+TTSString="and is below 3.141"
+Next=EndCall
+
+!=============================
+[ExitOnMaxCallSec]
+type=log
+next=EndCall
+
+[ExitOnMaxCallErrors]
+type=log
+next=EndCall
+
+[ExitOnScriptError]
+type=log
+next=EndCall
+
+[ExitOnMenuError]
+type=Log
+Next=EndCall
+
+[ExitOnMaxBadKeys]
+type=Log
+Next=EndCall
+
+[CallDisconnectHandler]
+type=log
+Next=EndCall
+
+[EndCall]
+type=log
+
+[EndMessage]
+type=play
+TTSString="Thank you, goodbye. Exiting."
+WaitForMsg=TRUE
+
+[TerminateCall]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate

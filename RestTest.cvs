@@ -1,0 +1,424 @@
+!========================================
+!Setup
+!========================================
+
+[ScriptSetup]
+type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"	!deprecated
+Language="English"
+MaxCallSec=2000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallErrors
+OnCallDisconnect=CallDisconnectHandler
+!OnMissingMsg=ThankYouGoodbyeExit
+OnScriptError=ExitOnScriptError
+AllowOnDisconnect=True
+!OnDtmfA=IgnoreBlock	!not in scripting guide
+LogTrace=True
+
+!========================================
+! Set System Defaults
+!========================================
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=FALSE
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=MenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=MenuError
+DefaultOnMaxBadValues=MenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+!========================================
+! Define REST API Test Variables
+!========================================
+[CreateRestApiVars]
+type=DefineVars
+ApiStatusCode=""
+ApiSuccess=""
+ApiError=""
+ApiCasesJson=""
+ApiCaseCount="0"
+ApiCaseIdx="0"
+ApiCaseNumberResult=""
+ApiCaseCategory=""
+ApiCaseType=""
+ApiCaseEligible=""
+ApiCaseStatus=""
+ApiPayorsJson=""
+ApiPayorCount="0"
+ApiPayorIdx="0"
+ApiPayorName=""
+ApiPayorEligible=""
+ApiPayorAmount=""
+ApiJurorInformation=""
+ApiErrorCode=""
+ApiStatus=""
+
+[CreateNuemoVars]
+type=DefineVars
+NeumoBaseUrl="https://fjd-sandbox.avenujury.com/base/rest/ivr"
+JuryBlobRepot=""
+PingEndpoint="/ping"
+GetJurorInfoEndpoint="/jurorinfo"
+PostponementInfoEndpoint="/postponementinfo"
+PostponementConfirmationEndpoint="/postponementconfirmation"
+ProcessQualificationEndpoint="/processqualification"
+ProcessExcuseExemptEnpoint="/processexcuseexempt"
+ProcessBioformEndpoint="/processbioform"
+jurorInformation=""
+JurorId = ""
+JurorFirstName = ""
+JurorLastName = ""
+PersonStatus = ""
+ReportingStatus = ""
+ReportingDate = ""
+ReportingTime = ""
+CourtLocationName = ""
+PostponeEligible=""                ! Indicates if postponement is eligible
+PostponeIneligibleReason=""        ! Reason for ineligibility of postponement
+PostponeDate1=""                   ! First calculated postponement date
+PostponeDate2=""                   ! Second calculated postponement date
+PostponeDate3=""                   ! Third calculated postponement date
+
+! Default Call Reference stored in Calls table. Changed in some script paths.
+[SetBasicCallReference]
+type=ChangeVariable
+@CallReference="RestTest.cvs"
+
+[SetNeumoEndpoints]
+type=ChangeVariable
+PingEndpoint=NeumoBaseUrl%PingEndpoint
+GetJurorInfoEndpoint=NeumoBaseUrl%GetJurorInfoEndpoint
+PostponementInfoEndpoint=NeumoBaseUrl%PostponementInfoEndpoint
+PostponementConfirmationEndpoint=NeumoBaseUrl%PostponementConfirmationEndpoint
+ProcessQualificationEndpoint=NeumoBaseUrl%ProcessQualificationEndpoint
+ProcessExcuseExemptEnpoint=NeumoBaseUrl%ProcessExcuseExemptEnpoint
+ProcessBioformEndpoint=NeumoBaseUrl%ProcessBioformEndpoint
+
+[LogPingEndpoint]
+type=Log
+var=PingEndpoint
+
+[RestTestMenu]
+type=menu
+ttsstring="To test the Neumo API, press 1. To test the Minnesota API, press 2. To test the JSI API, press 3. To exit, press 9."
+OnKey1=NeumoTest
+OnKey2=MnApiTest
+!OnKey3=JSITest
+OnKey9=ThankYouGoodbyeExit
+
+[NeumoTest]
+type=Log
+
+[verify]
+type=Play
+ttsstring="Verifying Neumo API connectivity. Please wait."
+
+[NeumoRestApiCall]
+type=RestApi
+Method=POST
+!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/ping"
+Url=PingEndpoint
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = "IVR",
+        password = "IVR"
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
+    vars["ApiJurorInformation"] = root.GetProperty("jurorInformation").GetString() ?? "";
+    vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=NeumoRestApiLogStatus
+Next=NeumoRestApiLogStatus
+
+[NeumoRestApiLogStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiJurorInformation,ApiStatus,ApiErrorCode
+
+[CheckNeumoStatus]
+type=play
+ttsstring="Neumo test complete. NeumoAPI status was"
+msgstring=ApiStatus%"|C"
+ttsstring="Getting Juror information. Please wait."
+
+[NeumoGetJurorInfoApiCall]
+type=RestApi
+Method=POST
+!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/jurorinfo"
+url=GetJurorInfoEndpoint
+!ContentType="application/json"
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = "IVR",
+        password = "IVR",
+        jurorID = "000032283",
+        dob = "01011961"
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    var juror = root.GetProperty("jurorInformation");
+    vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
+    vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["JurorId"] = juror.GetProperty("jurorID").GetString() ?? "";
+    vars["JurorFirstName"] = juror.GetProperty("nameFirst").GetString() ?? "";
+    vars["JurorLastName"] = juror.GetProperty("nameLast").GetString() ?? "";
+    vars["PersonStatus"] = juror.GetProperty("personStatus").GetString() ?? "";
+    vars["ReportingStatus"] = juror.GetProperty("reportingStatus").GetString() ?? "";
+    vars["ReportingDate"] = juror.GetProperty("reportingDate").GetString() ?? "";
+    vars["ReportingTime"] = juror.GetProperty("reportingTime").GetString() ?? "";
+    vars["CourtLocationName"] = juror.GetProperty("courtLocationName").GetString() ?? "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=NeumoRestApiLogStatus2
+Next=NeumoRestApiLogStatus2
+
+[NeumoRestApiLogStatus2]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,JurorInformation,ApiStatus
+
+[CheckNeumoStatus2]
+type=play
+ttsstring="Neumo Get Juror info test complete. NeumoAPI status was"
+msgstring=ApiStatus%"|C"
+ttsstring="The name associated with the juror ID is"
+msgstring=JurorLastName%"|C"
+
+[NeumoJurorLog]
+type=Log
+Var=JurorId,JurorFirstName,JurorLastName,PersonStatus,ReportingStatus,ReportingDate,ReportingTime,CourtLocationName
+
+[GetPostponementInfo]
+type=RestApi
+Method=POST
+!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/postponementinfo"
+url=PostponementInfoEndpoint
+!ContentType="application/json"
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = "IVR",
+        password = "IVR",
+        jurorID = "000032283",
+        dob = "01011961"
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    var jurorInformation = root.GetProperty("jurorInformation");
+    vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
+    vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["PostponeEligible"] = jurorInformation.GetProperty("postponeEligible").GetString() ?? "";
+    vars["PostponeIneligibleReason"] = jurorInformation.GetProperty("postponeIneligibleReason").GetString() ?? "";
+    var postponementDates = jurorInformation.GetProperty("calculatedPostponDates");
+    vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
+    vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
+    vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=NeumoRestApiLogStatus
+Next=NeumoRestApiLogStatus3
+
+[NeumoRestApiLogStatus3]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,JurorInformation,ApiStatus
+
+Next=RestTestMenu
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Minnesota REST API + ForEach Test
+!
+!  Calls MNCIS EligibleCasesForPayments API (Basic auth).
+!  Parses the JSON response, then uses ForEach to iterate
+!  over cases (outer loop) and payors (inner loop), logging
+!  key fields at each level.
+!
+!  Flow:
+!    RestApiTest
+!      ? RestApiLogStatus
+!        ? IterateCases  (MoveNext, outer loop)
+!            OnSuccess ? ProcessCase (ElementScript: extract case fields + payors JSON)
+!              ? LogCase
+!                ? StartPayorIteration (MoveFirst, resets inner loop per case)
+!                    OnSuccess ? LogPayor
+!                      ? IteratePayors (MoveNext, inner loop)
+!                          OnSuccess ? LogPayor  (loops back)
+!                          OnComplete ? IterateCases  (advance outer loop)
+!                    OnComplete ? IterateCases  (zero payors: advance outer loop)
+!            OnComplete ? RestApiTestDone
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[MnApiTest]
+type=Log
+
+! --- Step 1: Call the API ---
+[RestApiTest]
+type=RestApi
+Method=GET
+Url="https://devqais.courts.state.mn.us/deve/webservices/MncisPayments/v1/EligibleCasesForPayments?CaseNumber=43-VB-25-4"
+AuthType=Basic
+AuthUsername="courts.state.mn.us/PaymentService"
+AuthPassword="A+g6+NA4Jb8D%3%3$c~2~!87"
+!Headers="accept": "text/plain"
+TimeoutSeconds=30
+ResponseScript="""
+    var cases = JsonDocument.Parse(response).RootElement.GetProperty("cases");
+	
+    vars["ApiCasesJson"] = cases.GetRawText();
+    vars["ApiCaseCount"] = cases.GetArrayLength().ToString();
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=RestApiTestError
+Next=RestApiLogStatus
+
+! --- Log API outcome before iterating ---
+[RestApiLogStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiCaseCount
+Next=IterateCases
+
+! --- Outer loop: iterate cases ---
+[IterateCases]
+type=ForEach
+ArrayVar=ApiCasesJson
+CountVar=ApiCaseCount
+CurrentVar=ApiCaseIdx
+ElementScript="""
+    vars["ApiCaseNumberResult"] = element.GetProperty("caseNumber").GetString() ?? "";
+    vars["ApiCaseCategory"]     = element.GetProperty("caseCategory").GetString() ?? "";
+    vars["ApiCaseType"]         = element.GetProperty("baseCaseType").GetString() ?? "";
+    vars["ApiCaseEligible"]     = element.GetProperty("caseIsEligibleForPayment").GetBoolean().ToString();
+    vars["ApiCaseStatus"]       = element.GetProperty("currentCaseStatusDescription").GetString() ?? "";
+	
+    var payors = element.GetProperty("payors");
+    vars["ApiPayorsJson"]  = payors.GetRawText();
+    vars["ApiPayorCount"]  = payors.GetArrayLength().ToString();
+"""
+OnSuccess=LogCase
+OnError=RestApiTestError
+OnComplete=RestApiTestDone
+
+! --- Log case-level fields ---
+[LogCase]
+type=Log
+Var=ApiCaseIdx,ApiCaseCount,ApiCaseNumberResult,ApiCaseCategory,ApiCaseType,ApiCaseEligible,ApiCaseStatus,ApiPayorCount
+Next=IteratePayors
+
+! --- Start inner loop at first payor (resets state for each case) ---
+[IteratePayors]
+type=ForEach
+ArrayVar=ApiPayorsJson
+ElementScript="""
+    vars["ApiPayorName"] = element.GetProperty("name").GetString() ?? "";
+    vars["ApiPayorEligible"] = element.GetProperty("payorIsEligibleForPayment").GetBoolean().ToString() ?? "";
+    vars["ApiPayorAmount"] = element.GetProperty("currentAmountDue").GetDecimal().ToString() ?? "";
+"""
+OnSuccess=LogPayor
+OnError=RestApiTestError
+OnComplete=IterateCases
+
+! --- Log payor-level fields ---
+[LogPayor]
+type=Log
+Var=ApiPayorIdx,ApiPayorCount,ApiPayorName,ApiPayorEligible,ApiPayorAmount
+Next=IteratePayors
+
+! --- All cases processed ---
+[RestApiTestDone]
+type=Log
+LogMsg="RestApi+ForEach test complete"
+Next=RestTestMenu
+
+! --- API call failed ---
+[RestApiTestError]
+type=Log
+Var=ApiStatusCode,ApiError
+Next=RestTestMenu
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	TestComplete
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestComplete]
+type=Log
+
+[ThankYouGoodbyeExit]
+type=play
+msg="Thankyou"
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=TRUE
+Next=EndCall
+
+[MenuError]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallSec]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallErrors]
+type=log
+next=Goodbye
+
+[ExitOnScriptError]
+type=log
+next=Goodbye
+
+[EndCallWithDisconnectHandler]                                 
+type=SetGlobals
+AllowOnDisconnect=False
+next=EndCall
+
+[CallDisconnectHandler]
+type=Log
+
+! Disable OnDisconnect
+[EndCall]
+type=SetGlobals
+AllowOnDisconnect=False
+
+! Branch here to end call with the disconnect handler
+[EndCall2]                                 
+type=CallControl
+Command=Disconnect
+
+[FinalBlock]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate

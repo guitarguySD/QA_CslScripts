@@ -1,0 +1,328 @@
+! String Copy Test
+! 
+! test 1 - 
+! test 2 - 
+! test 3 - 
+! test 4 - 
+! test 5 - 
+! test 6 - 
+! Test 7 - 
+! Test 8 - 
+!
+[ScriptSetup]
+Type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"
+Language="English"
+MaxCallSec=90000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallSec
+OnCallDisconnect=CallDisconnectHandler
+OnScriptError=ExitOnMaxCallSec
+AllowOnDisconnect=True
+LogTrace=True
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=True
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=ExitOnMenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=ExitOnMenuError
+DefaultOnMaxBadValues=ExitOnMenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+[DefineVariables]
+Type=DefineVars
+UserInput=""
+numDigits=0
+
+! Test 1
+Input1="FromString"
+Output1=""
+Expected1="FromString"
+
+! Test 2
+Input2="FromString"
+Output2=""
+Expected2="String"
+
+! Test 3
+Input3="FromString"
+Output3=""
+Expected3="From"
+
+! Test 4
+Input4="FromString"
+Output4=""
+Expected4="mStrin"
+
+! Test 5
+Input5="abcdefghijklmnop"
+Output5=""
+Output5Counts=""
+Output5Count=0
+Expected5="1234567"
+strlen=5
+
+! Test 6
+Input6="FromString"
+Output6=""
+Expected6="From"
+
+! Test 7
+Input7="FromString"
+Output7=""
+Expected7="From"
+
+
+[StartTests]
+type=play
+TTSString="String Copy Tests"
+
+!================================
+! Test 1 - Copy from one string to another
+[StartTest1]
+type=play
+TTSString="Test one, set variable to a string"
+
+[Test1]
+type=CopyString
+String=Input1
+Var=Output1
+Start=1
+!Count=10 ! For testing, should not be required
+
+[CheckTest1Result]
+type=branch
+var=Output1
+Expected1=Pass01
+Next=Fail01
+
+[Pass01]
+Type=play
+TTSString="Pass. Variable copied correctly, set to new variable"
+Next=StartTest2
+
+[Fail01]
+type=play
+TTSString="Fail. StringCopy failed to copy the string correctly"
+
+[Fail01Log]
+type=log
+var=Input1, Output1, Expected1
+Next=StartTest2
+
+!================================
+! Test 2 - set variable to substring
+[StartTest2]
+type=play
+TTSString="Test two, create a substring"
+
+[Test2]
+type=CopyString
+String=Input2
+Var=Output2
+Start=5
+Count=6
+
+[CheckTest2Result]
+type=branch
+var=Output2
+Expected2=Pass2
+Next=Fail2
+
+[Pass2]
+Type=play
+TTSString="Pass. Substring created successfully"
+Next=StartTest3
+
+[Fail2]
+type=play
+TTSString="Fail. Substring not created correctly"
+
+[Fail2Log]
+type=log
+var=Input2, Output2, Expected2
+Next=StartTest3
+
+!================================
+! Test 3 - Reverse substring
+[StartTest3]
+type=play
+TTSString="Test three, create a reverse substring"
+
+[Test3]
+type=CopyString
+String=Input3 ! FromString
+Var=Output3
+Reverse=True
+Start=7
+Count=7 ! Should not need this 
+
+!FromString
+!0987654321
+
+[CheckTest3Result]
+type=branch
+var=Output3
+Expected3=Pass3
+Next=Fail3
+
+[Pass3]
+Type=play
+TTSString="Pass. Reverse Substring created successfully"
+Next=StartTest4
+
+[Fail3]
+type=play
+TTSString="Fail. Reverse Substring not created correctly"
+
+[Fail3Log]
+type=log
+var=Input3, Output3, Expected3
+Next=StartTest4
+
+
+!================================
+! Test 4 - Internal substring
+[StartTest4]
+type=play
+TTSString="Test Four, create a reverse substring"
+
+[Test4]
+type=CopyString
+String=Input4
+Var=Output4
+Reverse=true
+Start=2
+Count=6
+
+[CheckTest4Result]
+type=branch
+var=Output4
+Expected4=Pass4
+Next=Fail4
+
+[Pass4]
+Type=play
+TTSString="Pass. Reverse Substring created successfully"
+Next=StartTest5
+
+[Fail4]
+type=play
+TTSString="Fail. Reverse Substring not created correctly"
+
+[Fail4Log]
+type=log
+var=Input4, Output4, Expected4
+Next=StartTest5
+
+!================================
+! Test 5 - Test Count
+!Input5="abcdefghijklmnop"
+!Output5=""
+!Output5Counts=""
+!Output5Count=0
+!Expected5="123456"
+!nCount=1
+
+[StartTest5]
+type=play
+TTSString="Test Five, testing Count parameter"
+
+[Test5LoopStart]
+type=ChangeVariable
+strlen=1
+
+[Test5]
+type=CopyString
+String=Input5
+Var=Output5
+CountVar=Output5Count
+Start=1
+Count=5
+Next=CheckTest5Result
+
+![SaveResult5]
+!type=changeVariable
+!Output5Counts=Output5Counts%Output5Count
+
+![IncrementLoopCount]
+!type=changeVariable
+!Increment=strlen
+
+![Check5Loop]
+!type=branch
+!var=strlen
+!6=CheckTest5Result
+!OnBelowRange=Test5
+!OnAboveRange=CheckTest5Result
+
+[CheckTest5Result]
+type=branch
+var=Output5Count
+5=Pass5
+Next=Fail5
+
+[Pass5]
+Type=play
+TTSString="Pass. Count parameter works as expected"
+Next=EndCall
+
+[Fail5]
+type=play
+TTSString="Fail. Count parameter did not work as expected"
+
+[Fail5Log]
+type=log
+var=Input5, Output5, Expected5
+Next=EndCall
+
+!=============================
+[ExitOnMaxCallSec]
+type=log
+next=EndCall
+
+[ExitOnMaxCallErrors]
+type=log
+next=EndCall
+
+[ExitOnScriptError]
+type=log
+next=EndCall
+
+[ExitOnMenuError]
+type=Log
+Next=EndCall
+
+[ExitOnMaxBadKeys]
+type=Log
+Next=EndCall
+
+[CallDisconnectHandler]
+type=log
+Next=EndCall
+
+[EndCall]
+type=log
+
+[EndMessage]
+type=play
+TTSString="Thank you, goodbye. Exiting."
+WaitForMsg=TRUE
+
+[TerminateCall]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate
