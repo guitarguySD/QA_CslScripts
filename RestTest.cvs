@@ -78,21 +78,58 @@ ProcessQualificationEndpoint="/processqualification"
 ProcessExcuseExemptEnpoint="/processexcuseexempt"
 ProcessBioformEndpoint="/processbioform"
 jurorInformation=""
-JurorId = ""
-JurorDOB=""
-JurorFirstName = ""
-JurorLastName = ""
-PersonStatus = ""
-ReportingStatus = ""
-ReportingDate = ""
-ReportingTime = ""
-CourtLocationName = ""
-PostponeEligible=""                ! Indicates if postponement is eligible
-PostponeIneligibleReason=""        ! Reason for ineligibility of postponement
-PostponeDate1=""                   ! First calculated postponement date
-PostponeDate2=""                   ! Second calculated postponement date
-PostponeDate3=""                   ! Third calculated postponement date
 rawJsonResponse=""
+! CourtTalk variables
+CT_BioComplete=""
+CT_CaseID=""
+CT_City=""
+CT_DOB=""
+CT_EligibleToExcuse=""
+CT_EligibleToPostpone=""
+CT_ExcuseExemptRequestStatus=""
+CT_FirstInitial=""
+CT_FirstName=""
+CT_FullName=""
+CT_GroupID=""
+CT_IneligibleReason=""
+CT_JurorID=""
+CT_JurorState="UNKNOWN"
+CT_LastMileage=""
+CT_LastName=""
+CT_LastPaymentAmount=""
+CT_LastPaymentDate=""
+CT_LocationCode=""
+CT_LocationName=""
+CT_Middle=""
+CT_NameSuffix=""
+CT_NotificationConfirmation=""
+CT_NotificationType=""
+CT_PendingReview=0
+CT_PhoneNumber=""
+CT_PoolID=""
+CT_PostponementStatus=""
+CT_QualificationStatus=""
+CT_ReasonCode=""
+CT_ReasonType=""
+CT_ReasonDescription=""
+CT_ReportingAtAfter=""
+CT_ReportingStatus=""
+CT_ResultCode=""
+CT_ResultMessage=""
+CT_ScheduledDate=""
+CT_ScheduledTime=""
+CT_SelectedDate=""
+CT_ServiceEndDate=""
+CT_ServiceStartDate=""
+CT_State=""
+CT_Street1=""
+CT_Street2=""
+CT_Zipcode=""
+PostponeDate1=""
+PostponeDate2=""
+PostponeDate3=""
+JurorId=""
+JurorDOB=""
 
 ! Default Call Reference stored in Calls table. Changed in some script paths.
 [SetBasicCallReference]
@@ -127,7 +164,6 @@ type=Log
 [verify]
 type=Play
 ttsstring="Verifying Neumo API connectivity. Please wait."
-ttsstring="Pinging Neumo API endpoint using variables for URL, user ID, and password."
 
 !======================================
 ! Ping endpoint
@@ -168,6 +204,10 @@ ttsstring="Getting Juror information. Please wait."
 
 !======================================
 ! Get Juror Info
+[PlayTestingGetJuror]
+type=Play
+ttsstring="Testing Get Juror Info API. Please wait."
+
 [SetJurorInfoRequest]
 type=ChangeVariable
 JurorId="000032283"
@@ -190,20 +230,57 @@ RequestScript="""
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
-    using System.Text.Json;
-    var root = JsonDocument.Parse(response).RootElement;
-    vars["rawJsonResponse"] = root.GetRawText();
-    var juror = root.GetProperty("jurorInformation");
-    vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
-    vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
-    vars["JurorId"] = juror.GetProperty("jurorID").GetString() ?? "";
-    vars["JurorFirstName"] = juror.GetProperty("nameFirst").GetString() ?? "";
-    vars["JurorLastName"] = juror.GetProperty("nameLast").GetString() ?? "";
-    vars["PersonStatus"] = juror.GetProperty("personStatus").GetString() ?? "";
-    vars["ReportingStatus"] = juror.GetProperty("reportingStatus").GetString() ?? "";
-    vars["ReportingDate"] = juror.GetProperty("reportingDate").GetString() ?? "";
-    vars["ReportingTime"] = juror.GetProperty("reportingTime").GetString() ?? "";
-    vars["CourtLocationName"] = juror.GetProperty("courtLocationName").GetString() ?? "";
+using System.Text.Json;
+
+var root = JsonDocument.Parse(response).RootElement;
+
+// Root level
+vars["CT_ResultCode"]    = root.TryGetProperty("status",    out var status)    ? status.GetString()    ?? "" : "";
+vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+
+// jurorInformation block
+if (root.TryGetProperty("jurorInformation", out var juror))
+{
+    vars["CT_JurorState"]        = juror.TryGetProperty("personStatus",      out var v) ? v.GetString() ?? "UNKNOWN" : "UNKNOWN";
+    vars["CT_JurorID"]           = juror.TryGetProperty("jurorID",           out v) ? v.GetString() ?? "" : "";
+
+    vars["CT_DOB"]               = juror.TryGetProperty("dob",               out v) ? v.GetString() ?? "" : "";
+
+    vars["CT_FirstName"]         = juror.TryGetProperty("nameFirst",         out v) ? v.GetString() ?? "" : "";
+    vars["CT_FirstInitial"]      = juror.TryGetProperty("nameFirst",         out v) ? (v.GetString() ?? "").Substring(0, Math.Min(1, (v.GetString() ?? "").Length)) : "";
+    vars["CT_LastName"]          = juror.TryGetProperty("nameLast",          out v) ? v.GetString() ?? "" : "";
+    vars["CT_FullName"]          = $"{vars["CT_FirstName"]} {vars["CT_LastName"]}".Trim();
+    vars["CT_Middle"]            = juror.TryGetProperty("nameMiddle",        out v) ? v.GetString() ?? "" : "";
+    vars["CT_NameSuffix"]        = juror.TryGetProperty("nameSuffix",        out v) ? v.GetString() ?? "" : "";
+    vars["CT_ReportingStatus"]   = juror.TryGetProperty("reportingStatus",   out v) ? v.GetString() ?? "" : "";
+    // Combine JurorState and ReportingStatus 
+    vars["CT_JurorState"] = vars["CT_JurorState"] == "Qualified" ? $"{vars["CT_JurorState"]}{vars["CT_ReportingStatus"]}" : vars["CT_JurorState"];
+    vars["CT_ScheduledDate"]     = juror.TryGetProperty("reportingDate",     out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime schDt) ? schDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
+    vars["CT_ScheduledTime"]     = juror.TryGetProperty("reportingTime",     out v) ? v.GetString() ?? "" : "";
+    vars["CT_LocationCode"]      = juror.TryGetProperty("courtLocationCode", out v) ? v.GetString() ?? "" : "";
+    vars["CT_LocationName"]      = juror.TryGetProperty("courtLocationName", out v) ? v.GetString() ?? "" : "";
+    vars["CT_Street1"]           = juror.TryGetProperty("street",            out v) ? v.GetString() ?? "" : "";
+    vars["CT_Street2"]           = juror.TryGetProperty("street2",           out v) ? v.GetString() ?? "" : "";
+    vars["CT_City"]              = juror.TryGetProperty("city",              out v) ? v.GetString() ?? "" : "";
+    vars["CT_State"]             = juror.TryGetProperty("state",             out v) ? v.GetString() ?? "" : "";
+    vars["CT_Zipcode"]           = juror.TryGetProperty("zipCode",           out v) ? v.GetString() ?? "" : "";
+
+    vars["CT_ServiceStartDate"]  = juror.TryGetProperty("serviceStartDate",  out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime ssdDt) ? ssdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
+    vars["CT_ServiceEndDate"]    = juror.TryGetProperty("serviceEndDate",    out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime sedDt) ? sedDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
+    vars["CT_ReportingAtAfter"]  = juror.TryGetProperty("reportingAtAfter",  out v) ? v.GetString() ?? "" : "";
+
+    vars["CT_BioComplete"]       = juror.TryGetProperty("bioComplete",       out v) ? v.GetBoolean().ToString() : "";
+    vars["CT_PendingReview"]     = juror.TryGetProperty("pendingReview",     out v) ? (v.GetBoolean() ? "1" : "0") : "0";
+    vars["CT_PoolID"]            = juror.TryGetProperty("poolID",            out v) ? v.GetString() ?? "" : "";
+    vars["CT_LastPaymentAmount"] = juror.TryGetProperty("lastPaymentAmount", out v) ? v.GetString() ?? "" : "";
+
+    vars["CT_LastPaymentDate"]   = juror.TryGetProperty("lastPaymentDate",   out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime lpdDt) ? lpdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
+    vars["CT_LastMileage"]       = juror.TryGetProperty("lastMileage",       out v) ? v.GetString() ?? "" : "";
+}
 """
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
@@ -213,22 +290,26 @@ Next=LogGetJurorInfoApiCallStatus
 
 [LogGetJurorInfoApiCallStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus,jurorId,JurorLastName
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus
 
 [LogRawJsonResponse]
 type=Log
 Var=rawJsonResponse
+
+[LogJurorInfo]
+type=Log
+Var=CT_JurorState,CT_JurorID,CT_DOB,CT_FirstName,CT_FirstInitial,CT_LastName,CT_Middle,CT_NameSuffix,CT_ReportingStatus,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_LocationName,CT_Street1,CT_Street2,CT_City,CT_State,CT_Zipcode,CT_ServiceStartDate,CT_ServiceEndDate,CT_ReportingAtAfter,CT_BioComplete,CT_PendingReview,CT_PoolID,CT_LastPaymentAmount,CT_LastPaymentDate,CT_LastMileage
+
+[LogDateParsing]
+type=Log
+Var=CT_ScheduledDate
 
 [PlayGetJUrorStatus]
 type=play
 ttsstring="Neumo Get Juror info test complete. NeumoAPI status was"
 msgstring=ApiStatus%"|C"
 ttsstring="The name associated with the juror ID is"
-msgstring=JurorLastName%"|C"
-
-[LogGetJurorInfo]]
-type=Log
-Var=JurorId,JurorFirstName,JurorLastName,PersonStatus,ReportingStatus,ReportingDate,ReportingTime,CourtLocationName
+msgstring=CT_LastName%"|C"
 
 [GetPostponementInfo]
 type=RestApi
