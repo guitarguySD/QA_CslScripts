@@ -274,20 +274,45 @@ DisqReason8=""
 AnswerSum=0
 
 CJ_JurorID="" ! This is returned from Clearview Jury. For error checking purposes.
-
-
 ! Check Excuse Exempt Disqualify
 CT_returnedJurorId=""
 CT_requestType=""
 CT_requestEligibility=""
 
 ! Jury Config Variables
-
 AllowDeferrals = 1
 AllowDisqualifications = 1
 AllowExcusals=1
 FirstRetrieval=1
 FTAIsEligibleToDefer=0   ! This controls if FTA jurors can self process a deferral
+
+[CreateNuemoVars]
+type=DefineVars
+NeumoBaseUrl="https://fjd-sandbox.avenujury.com/base/rest/ivr"
+NeumoUserId="IVR"
+NeumoPassword="IVR"
+PingEndpoint="/ping"
+GetJurorInfoEndpoint="/jurorinfo"
+PostponementInfoEndpoint="/postponementinfo"
+PostponementConfirmationEndpoint="/postponementconfirmation"
+ProcessQualificationEndpoint="/processqualification"
+ProcessExcuseExemptEnpoint="/processexcuseexempt"
+ProcessBioformEndpoint="/processbioform"
+jurorInformation=""
+JurorId = ""
+JurorDOB=""
+JurorFirstName = ""
+JurorLastName = ""
+PersonStatus = ""
+ReportingStatus = ""
+ReportingDate = ""
+ReportingTime = ""
+CourtLocationName = ""
+PostponeEligible=""                ! Indicates if postponement is eligible
+PostponeIneligibleReason=""        ! Reason for ineligibility of postponement
+PostponeDate1=""                   ! First calculated postponement date
+PostponeDate2=""                   ! Second calculated postponement date
+PostponeDate3=""                   ! Third calculated postponement date
 
 !========================================
 ! Set System Defaults

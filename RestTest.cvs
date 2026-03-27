@@ -68,7 +68,8 @@ ApiStatus=""
 [CreateNuemoVars]
 type=DefineVars
 NeumoBaseUrl="https://fjd-sandbox.avenujury.com/base/rest/ivr"
-JuryBlobRepot=""
+NeumoUserId="IVR"
+NeumoPassword="IVR"
 PingEndpoint="/ping"
 GetJurorInfoEndpoint="/jurorinfo"
 PostponementInfoEndpoint="/postponementinfo"
@@ -78,6 +79,7 @@ ProcessExcuseExemptEnpoint="/processexcuseexempt"
 ProcessBioformEndpoint="/processbioform"
 jurorInformation=""
 JurorId = ""
+JurorDOB=""
 JurorFirstName = ""
 JurorLastName = ""
 PersonStatus = ""
@@ -90,6 +92,7 @@ PostponeIneligibleReason=""        ! Reason for ineligibility of postponement
 PostponeDate1=""                   ! First calculated postponement date
 PostponeDate2=""                   ! Second calculated postponement date
 PostponeDate3=""                   ! Third calculated postponement date
+rawJsonResponse=""
 
 ! Default Call Reference stored in Calls table. Changed in some script paths.
 [SetBasicCallReference]
@@ -124,8 +127,11 @@ type=Log
 [verify]
 type=Play
 ttsstring="Verifying Neumo API connectivity. Please wait."
+ttsstring="Pinging Neumo API endpoint using variables for URL, user ID, and password."
 
-[NeumoRestApiCall]
+!======================================
+! Ping endpoint
+[PingRestApiCall]
 type=RestApi
 Method=POST
 !Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/ping"
@@ -133,8 +139,8 @@ Url=PingEndpoint
 RequestScript="""
     using System.Text.Json;
     var requestBody = new {
-        userId = "IVR",
-        password = "IVR"
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
@@ -142,24 +148,30 @@ ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
     vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
-    vars["ApiJurorInformation"] = root.GetProperty("jurorInformation").GetString() ?? "";
     vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
 """
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
-OnError=NeumoRestApiLogStatus
-Next=NeumoRestApiLogStatus
+OnError=PingLogStatus
+Next=PingLogStatus
 
-[NeumoRestApiLogStatus]
+[PingLogStatus]
 type=Log
 Var=ApiStatusCode,ApiSuccess,ApiError,ApiJurorInformation,ApiStatus,ApiErrorCode
 
-[CheckNeumoStatus]
+[CheckPingStatus]
 type=play
 ttsstring="Neumo test complete. NeumoAPI status was"
 msgstring=ApiStatus%"|C"
 ttsstring="Getting Juror information. Please wait."
+
+!======================================
+! Get Juror Info
+[SetJurorInfoRequest]
+type=ChangeVariable
+JurorId="000032283"
+JurorDOB="01011961"
 
 [NeumoGetJurorInfoApiCall]
 type=RestApi
@@ -170,16 +182,17 @@ url=GetJurorInfoEndpoint
 RequestScript="""
     using System.Text.Json;
     var requestBody = new {
-        userId = "IVR",
-        password = "IVR",
-        jurorID = "000032283",
-        dob = "01011961"
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["JurorId"],
+        dob = vars["JurorDOB"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
+    vars["rawJsonResponse"] = root.GetRawText();
     var juror = root.GetProperty("jurorInformation");
     vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
     vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
@@ -195,21 +208,25 @@ ResponseScript="""
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
-OnError=NeumoRestApiLogStatus2
-Next=NeumoRestApiLogStatus2
+OnError=LogGetJurorInfoApiCallStatus
+Next=LogGetJurorInfoApiCallStatus
 
-[NeumoRestApiLogStatus2]
+[LogGetJurorInfoApiCallStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,JurorInformation,ApiStatus
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus,jurorId,JurorLastName
 
-[CheckNeumoStatus2]
+[LogRawJsonResponse]
+type=Log
+Var=rawJsonResponse
+
+[PlayGetJUrorStatus]
 type=play
 ttsstring="Neumo Get Juror info test complete. NeumoAPI status was"
 msgstring=ApiStatus%"|C"
 ttsstring="The name associated with the juror ID is"
 msgstring=JurorLastName%"|C"
 
-[NeumoJurorLog]
+[LogGetJurorInfo]]
 type=Log
 Var=JurorId,JurorFirstName,JurorLastName,PersonStatus,ReportingStatus,ReportingDate,ReportingTime,CourtLocationName
 
@@ -222,10 +239,9 @@ url=PostponementInfoEndpoint
 RequestScript="""
     using System.Text.Json;
     var requestBody = new {
-        userId = "IVR",
-        password = "IVR",
-        jurorID = "000032283",
-        dob = "01011961"
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["JurorId"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
@@ -245,10 +261,10 @@ ResponseScript="""
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
-OnError=NeumoRestApiLogStatus
-Next=NeumoRestApiLogStatus3
+OnError=LogPostponeApiCallStatus
+Next=LogPostponeApiCallStatus
 
-[NeumoRestApiLogStatus3]
+[LogPostponeApiCallStatus]
 type=Log
 Var=ApiStatusCode,ApiSuccess,ApiError,JurorInformation,ApiStatus
 
