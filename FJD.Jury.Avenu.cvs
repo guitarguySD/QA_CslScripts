@@ -292,8 +292,8 @@ FTAIsEligibleToDefer=0   ! This controls if FTA jurors can self process a deferr
 [CreateNuemoVars]
 type=DefineVars
 NeumoBaseUrl="https://fjd-sandbox.avenujury.com/base/rest/ivr"
-NeumoUserId="IVR"
-NeumoPassword="IVR"
+NeumoUserId=""
+NeumoPassword=""
 PingEndpoint="/ping"
 GetJurorInfoEndpoint="/jurorinfo"
 PostponementInfoEndpoint="/postponementinfo"
@@ -338,11 +338,25 @@ DefaultLogGetDigits=1     	! True
 DefaultLogPlay=1     		! True
 DefaultTerminator=""
 
+[SetNeumoEndpoints]
+type=ChangeVariable
+PingEndpoint=NeumoBaseUrl%PingEndpoint
+GetJurorInfoEndpoint=NeumoBaseUrl%GetJurorInfoEndpoint
+PostponementInfoEndpoint=NeumoBaseUrl%PostponementInfoEndpoint
+PostponementConfirmationEndpoint=NeumoBaseUrl%PostponementConfirmationEndpoint
+ProcessQualificationEndpoint=NeumoBaseUrl%ProcessQualificationEndpoint
+ProcessExcuseExemptEnpoint=NeumoBaseUrl%ProcessExcuseExemptEnpoint
+ProcessBioformEndpoint=NeumoBaseUrl%ProcessBioformEndpoint
 
+[GetNeumoVariables]
+type=VariableManager
+VarList=NeumoUserId,NeumoPassword
+OnError=LogVMNeumoError
+Next=SetJurorStateUNKNOWN
 
-[LogInitialValues]
+[LogVMNeumoError]
 type=log
-var=CT_JurorID,CT_LastName,CT_JurorState
+LogMsg="Error retrieving Neumo API UserId and Password variables from Variable Manager"
 
 ! CT_JurorState maintains the state of the juror and controls flow
 ! in the script. 
@@ -356,14 +370,11 @@ FirstRetrieval=1
 type=SetGlobals
 Language="English"
 
-[SetGlobalTestMode]
-type=log
 
-! Covid 19 change - no assistance is available
+
 [GetInitialVariables]
 type=VariableManager
-!VarList="AssistanceAvailable,HolidayToday,OperatorOpen,OperatorClosed,RecordPassword,PhraseToRecord,HostAvailable,TestPassword"
-VarList="Extension,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,CallinStartTime,CallinEndTime,CourtPhoneNumber,CourtFaxNumber"
+VarList="AssistanceAvailable,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,CallinStartTime,CallinEndTime,CourtPhoneNumber,CourtFaxNumber"
 OnError=LogVMError1
 Next=SetOpeningClosingTimes
 
@@ -392,15 +403,42 @@ Next=StatE_CallStarts
 type=log
 logmsg="Call Starts"
 
-! Check if Javascript is running
+! Check if API is available
 ! 
-[PingJS]
-type=log
-Next=CheckJSStatusResult
+!======================================
+! Ping endpoint
+[PingNeumoAPI]
+type=RestApi
+Method=POST
+Url=PingEndpoint
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"]
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
+    vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogPingStatus
+Next=LogPingStatus
 
-[LogPingJSError]
-type=log
-var=@Result,@ResultMessage
+[LogPingStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+
+[CheckPingStatus]
+type=branch
+var=CT_ResultCode
+"OK"=SetDbUp
 Next=SetDBDown
 
 [CheckJSStatusResult]
@@ -754,12 +792,11 @@ type=log
 
 [LogGetJurorInfoInput]
 type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
+var=CT_JurorID,CT_DOB,GetJurorInfoEndpoint
 
 [GetJurorInfo]
 type=RestApi
 Method=POST
-!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/jurorinfo"
 url=GetJurorInfoEndpoint
 !ContentType="application/json"
 RequestScript="""
@@ -767,8 +804,8 @@ RequestScript="""
     var requestBody = new {
         userId = vars["NeumoUserId"],
         password = vars["NeumoPassword"],
-        jurorID = vars["JurorId"],
-        dob = vars["JurorDOB"]
+        jurorID = vars["CT_JurorId"],
+        dob = vars["CT_DOB"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
@@ -790,9 +827,9 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     vars["CT_DOB"]               = juror.TryGetProperty("dob",               out v) ? v.GetString() ?? "" : "";
 
     vars["CT_FirstName"]         = juror.TryGetProperty("nameFirst",         out v) ? v.GetString() ?? "" : "";
-    vars["CT_FirstInitial"]      = juror.TryGetProperty("nameFirst",         out v) ? (v.GetString() ?? "").Substring(0, Math.Min(1, (v.GetString() ?? "").Length)) : "";
+    //vars["CT_FirstInitial"]      = juror.TryGetProperty("nameFirst",         out v) ? (v.GetString() ?? "").Substring(0, Math.Min(1, (v.GetString() ?? "").Length)) : "";
     vars["CT_LastName"]          = juror.TryGetProperty("nameLast",          out v) ? v.GetString() ?? "" : "";
-    vars["CT_FullName"]          = $"{vars["CT_FirstName"]} {vars["CT_LastName"]}".Trim();
+    //vars["CT_FullName"]          = $"{vars["CT_FirstName"]} {vars["CT_LastName"]}".Trim();
     vars["CT_Middle"]            = juror.TryGetProperty("nameMiddle",        out v) ? v.GetString() ?? "" : "";
     vars["CT_NameSuffix"]        = juror.TryGetProperty("nameSuffix",        out v) ? v.GetString() ?? "" : "";
     vars["CT_ReportingStatus"]   = juror.TryGetProperty("reportingStatus",   out v) ? v.GetString() ?? "" : "";
@@ -808,20 +845,14 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     vars["CT_City"]              = juror.TryGetProperty("city",              out v) ? v.GetString() ?? "" : "";
     vars["CT_State"]             = juror.TryGetProperty("state",             out v) ? v.GetString() ?? "" : "";
     vars["CT_Zipcode"]           = juror.TryGetProperty("zipCode",           out v) ? v.GetString() ?? "" : "";
-
     vars["CT_ServiceStartDate"]  = juror.TryGetProperty("serviceStartDate",  out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime ssdDt) ? ssdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
-
     vars["CT_ServiceEndDate"]    = juror.TryGetProperty("serviceEndDate",    out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime sedDt) ? sedDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
-
     vars["CT_ReportingAtAfter"]  = juror.TryGetProperty("reportingAtAfter",  out v) ? v.GetString() ?? "" : "";
-
     vars["CT_BioComplete"]       = juror.TryGetProperty("bioComplete",       out v) ? v.GetBoolean().ToString() : "";
     vars["CT_PendingReview"]     = juror.TryGetProperty("pendingReview",     out v) ? (v.GetBoolean() ? "1" : "0") : "0";
     vars["CT_PoolID"]            = juror.TryGetProperty("poolID",            out v) ? v.GetString() ?? "" : "";
     vars["CT_LastPaymentAmount"] = juror.TryGetProperty("lastPaymentAmount", out v) ? v.GetString() ?? "" : "";
-
     vars["CT_LastPaymentDate"]   = juror.TryGetProperty("lastPaymentDate",   out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime lpdDt) ? lpdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
-
     vars["CT_LastMileage"]       = juror.TryGetProperty("lastMileage",       out v) ? v.GetString() ?? "" : "";
 }
 """
@@ -829,16 +860,21 @@ StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
 OnError=LogApiError
-Next=LogGetJurorInfo
+Next=LogGetJurorInfoApiCallStatus
+
+[LogGetJurorInfoApiCallStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
 
 [LogGetJurorInfo]
 type=log
-var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_BioComplete
 
-[LogGetJurorInfo2]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
-Next=CheckRetrieveResult
+[CheckAPIResult_GetJurorInfo]
+type=branch
+var=ApiSuccess
+true=CheckRetrieveResult
+Next=LogApiError
 
 [LogApiError]
 type=log
@@ -851,17 +887,24 @@ Next=StatE_Sorry
 [CheckRetrieveResult]
 type=branch
 var=CT_ResultCode
-0=StatE_RecordFound
-1=StatE_DOBMismatch
-2=StatE_DOBMismatch
-9=StatE_RecordNotFound
-Next=StatE_JSError
+"OK"=StatE_RecordFound
+Next=CheckRetrieveError
 
-[StatE_JSError]
-type=log
-logmsg="Retrieve Error"
+[CheckRetrieveError]
+type=branch
+var=CT_ResultMessage
+"IVR_ERR_001"=StatE_DOBMismatch
+"IVR_ERR_002"=StatE_DOBMismatch
+"IVR_ERR_003"=StatE_SystemError
+"IVR_ERR_004"=StatE_SystemError
+"IVR_ERR_004"=StatE_SystemError
+"IVR_ERR_005"=StatE_SystemError
+"IVR_ERR_006"=StatE_SystemError
+"IVR_ERR_009"=StatE_RecordNotFound
+"IVR_ERR_010"=StatE_RecordNotFound
+Next=StatE_RetrieveError
 
-[LogRetrieveError]
+[StatE_RetrieveError]
 type=log
 var=CT_ResultCode,CT_ResultMessage
 
@@ -894,45 +937,6 @@ Next=CheckJurorIDReturned
 type=changeVariable
 CT_BioComplete=1
 
-!-------------------------------------------------------------------------------
-! This section is a workaround 3/31/16. Sometimes wrong juror info is returned from Clientcall
-! CVP Javascript problem
-!-------------------------------------------------------------------------------
-[CheckJurorIDReturned]
-type=branch
-var=CT_JurorIDFromRetrieval
-CT_JurorID=LogLocationInfo    ! On to normal execution. The juror ID entered matches the one retrieved from the database.
-Next=LogJurorIDMismatchError
-
-[LogJurorIDMismatchError]
-type=log
-var=retryCounter,CT_JurorID,CT_JurorIDFromRetrieval
-
-[IncrementRetryCounter]
-type=changeVariable
-increment=retryCounter
-
-[BriefPause]
-type=pause
-PauseSec=1
-
-[BranchOnRetryCounter]
-type=branch
-var=retryCounter
-3=SetScreenMsgErrorRetrievingRecord
-OnBelowRange=GetJurorInfo
-OnAboveRange=SetScreenMsgErrorRetrievingRecord
-
-[SetScreenMsgErrorRetrievingRecord]
-type=changeVariable
-ScreenMsg="IVR Error: Can't retrieve record"
-Next=StatE_SystemError
-
-!-----------------------------------------------
-! End of Patch
-!-----------------------------------------------
-
-
 [LogLocationInfo]
 type=log
 var=CT_JurorID,CT_JurorState,CT_LocationCode,CT_LocationName,CT_ScheduledDate,CT_ScheduledTime
@@ -941,19 +945,7 @@ var=CT_JurorID,CT_JurorState,CT_LocationCode,CT_LocationName,CT_ScheduledDate,CT
 type=ChangeVariable
 CourtAddress="CourtAddress"%CT_LocationCode
 CourtIntro="CourtIntro"%CT_LocationCode
-
-[CheckSaveJurorData]
-type=branch
-var=CaptureJurorData
-1=SaveJurorData
 Next=CheckIfFirstRetrival
-
-[SaveJurorData]
-Type=XML
-Command=EncodeVarList
-Format=Document
-VarList="CT_FirstName,CT_FirstInitial,CT_LastName,CT_Middle,CT_NameSuffix,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_LocationName,CT_Street1,CT_Street2,CT_City,CT_State,CT_Zipcode,CT_ServiceStartDate,CT_ServiceEndDate,CT_LastPaymentAmount,CT_LastPaymentDate,CT_LastMileage,CT_BioComplete,CT_ResultCode,CT_ResultMessage"
-FileName=CT_JurorID
 
 ! If this is the first retrieval, verify name. If it's a record refresh, skip that.
 [CheckIfFirstRetrival] 
@@ -975,11 +967,12 @@ var=CT_JurorState
 "Available"=CheckPendingReview
 "Pool"=CheckPendingReview
 "Qualified"=CheckPendingReview
+"QualifiedReport"=CheckPendingReview
+"QualifiedOnCall"=CheckPendingReview
 "FTA Responded"=CheckPendingReview
 "FTA Non Responded"=CheckPendingReview
 "FTA"=CheckPendingReview
 Next=SetPostponementIneligible
-
 
 [CheckPendingReview]
 type=branch
@@ -994,70 +987,66 @@ CT_EligibleToExcuse=0
 AllowDeferrals = 0
 AllowDisqualifications = 0
 AllowExcusals=0
-!Next=VerifyName
 Next=CheckInReportingWeek
 
 [GetPostponementEligibility]
-type=log
-var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
+type=RestApi
+Method=POST
+!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/postponementinfo"
+url=PostponementInfoEndpoint
+!ContentType="application/json"
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"]
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    
+    // Root level
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["PostponeEligible"] = jurorInformation.TryGetProperty("postponeEligible", out var v) ? v.GetString() ?? "" : "";
+        vars["PostponeIneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
+        
+        if (jurorInformation.TryGetProperty("calculatedPostponeDates", out var postponementDates))
+        {
+            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
+            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
+            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+        }
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogApiError
+Next=CheckPostponeInfoAPIResult
 
-[BranchOnJuryTestModePostponements]
-type=branch
-var=JuryTestMode
-0=GetPostponementEligibilityAJ
-1=SetTestModePostponement
-Next=GetPostponementEligibilityAJ
+[CheckPostponeInfoAPIResult]
+type=Branch
+var=ApiSuccess
+true=CheckPostponeResult
+Next=LogApiError ! Error path
 
-[SetTestModePostponement]
-type=changeVariable
-CT_EligibleToPostpone=1
-PostponeDate1="06/10/2016"
-PostponeDate2="06/17/2016"
-PostponeDate3="06/24/2016"
-CT_ResultCode=0
-CT_ResultMessage=""
-Next=CheckPostponementRequestResult
-
-[GetPostponementEligibilityAJ]
-type=log
-Next=CheckPostponementRequestResult
-
-[LogJsErrorPPReq]
-type=log
-var=@Result,@ResultMessage
-Next=SetPostponementIneligible
-
-[CheckPostponementRequestResult]
-type=log
-var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
-
-[ExtraLog2]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
-
-[CheckPostponementRequestResultAJ]
+[CheckPostponeResult]
 type=branch
 var=CT_ResultCode
-0=LogPPResultCode
-Next=SetPostponementIneligible ! If not 0, ineligible
+OK=LogPPResultCode
+Next=SetPostponementIneligible 
 
 [LogPPResultCode]
 type=log
 var=CT_ResultCode,CT_ResultMessage
-
-[CheckSaveJurorData_PPRequest]
-type=branch
-var=CaptureJurorData
-1=SaveJurorData_PPRequest
-Next=LogPostponementData
-
-[SaveJurorData_PPRequest]
-Type=XML
-Command=EncodeVarList
-Format=Document
-VarList="CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode,CT_ResultMessage"
-FileName=CT_JurorID%"_PostponeData"
-Next=LogPostponementData
 
 [LogPostponementData]
 type=log
@@ -1067,7 +1056,6 @@ var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate
 type=branch
 var=PostponeDate1
 ""=SetPostponementIneligible
-!Next=CheckInReportingWeek
 Next=CheckExcuseEligibility
 !-------------------------------------------
 ! Set postponement Ineligible

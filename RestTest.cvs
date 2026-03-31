@@ -329,15 +329,24 @@ RequestScript="""
 ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
-    var jurorInformation = root.GetProperty("jurorInformation");
-    vars["ApiStatus"] = root.GetProperty("status").GetString() ?? "";
-    vars["ApiErrorCode"] = root.GetProperty("errorCode").GetString() ?? "";
-    vars["PostponeEligible"] = jurorInformation.GetProperty("postponeEligible").GetString() ?? "";
-    vars["PostponeIneligibleReason"] = jurorInformation.GetProperty("postponeIneligibleReason").GetString() ?? "";
-    var postponementDates = jurorInformation.GetProperty("calculatedPostponDates");
-    vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
-    vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
-    vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+    
+    // Root level
+    vars["ApiStatus"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["ApiErrorCode"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["PostponeEligible"] = jurorInformation.TryGetProperty("postponeEligible", out var v) ? v.GetString() ?? "" : "";
+        vars["PostponeIneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
+        
+        if (jurorInformation.TryGetProperty("calculatedPostponeDates", out var postponementDates))
+        {
+            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
+            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
+            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+        }
+    }
 """
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
