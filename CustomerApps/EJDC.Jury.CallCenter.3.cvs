@@ -1,0 +1,576 @@
+! EJDC Jury CallCenter HelpDesk Application
+! 
+!========================================
+!2024/08/02	EB	IsHoliday and HDGreeting rename, IsHoliday variable; added CheckHolidayToday block
+!2024/08/16	EB	Added Acd route to Spanish
+!2024/08/21	EB	Added Acd route to Supervisors
+!========================================
+!
+!========================================
+!Setup
+!========================================
+[ScriptSetup]
+type=SetGlobals
+Language="English"
+MaxCallSec=9000
+MaxCallErrors=8
+OnMaxCallSec=Exit
+OnMaxCallErrors=Exit
+OnCallDisconnect=EndCall
+OnMissingMsg=Exit
+OnScriptError=Exit
+AllowOnDisconnect=True
+LogTrace=TRUE
+
+!========================================
+! Define Variables
+!========================================
+[DefineSetupVariable]  
+type=DefineVars
+TempExtension=""
+Extension=""
+     
+! Misc SCRIPT VARIABLES
+CallBlockResult=""
+IsHoliday=0
+Host_Result=0
+HostAvailable=0
+HostTimeoutReturn=""
+
+!ACD Variables
+ACD_AgentData=""	               !! Data sent to Agent Screen			
+ACD_AgentExtension=""	         !! Extension of agent to transfer call to from CheckCall routine		
+ACD_AgentName=""		         !! String with agent's name or extension	
+ACD_CallAge=""	               !! Time in sec. since call started		
+ACD_CallID=""		         !! 32-bit cardinal# assigned by ACD var=ACD_Result		
+ACD_CallPriority=0		!!	
+ACD_CallState=0		         !! Current state of call		
+ACD_ConnectToAddress=0		!!
+ACD_ConnectType=0			!0= Use Dll to determine connected line state, 1=analog connected, 2=analog failed connect
+ACD_ConnectToName=0		!!
+ACD_ConnectedLineState=0	!!
+ACD_EstimatedHoldTimeMin=0
+ACD_PortState=0		         !! Defines who has control of current call		
+ACD_PositionInQueue=0            !! Number of calls ahead of current call
+ACD_Result=0			!! Result Code from any CCSACD.Dll routine
+ACD_RouteCode=0		         !! Denotes why call routed back to CCS		
+ACD_RouteName="Jury"		         !! String with destination route name		
+ACD_TimeInQueue=0	               !! Time in sec.  Stops when call assigned	
+ACD_TransferFromAgentName=""	!! Agents name that is transferring a call
+ACD_ConnectedPortState=0		! ?
+ACD_ServerState=0				! ACD Server State 2=OK 6=Disabled
+ACD_AnswerTimeoutSec=30			! Returned from route call to acd
+ACD_DigitsAfterConnect=""		! ACD will dial these digits after connecting, but before opening the talk path.
+ACD_MusicOnHoldFile=""
+ACD_AgentCall=1
+ACD_WaitForAnswerMSec=25000
+ACD_WaitForPortMSec=30000
+ACD_InboundDestination=""
+ACD_OriginationAddress=@OriginationAddress
+AgentTransfer=0
+AnswerLength=0
+AgentCall=0
+CallerLanguage="English"
+CallingPhoneNumber=@OriginationAddress
+ConferenceConnectCode="&"
+ConferenceDisconnectCode="&"
+!ConferenceStartCode="&,*3"		! Use for Lab Testing
+ConferenceStartCode="&,"		! Use For Production
+CR_Dialed_Number=""
+CR_Result=0
+DialCode=""
+EndOfCycleCount=0
+OnHoldSequence=0 
+LineType="Analog"                
+QueueStatVariable=0
+ResultWas=""
+RouteRetry=0
+VAR_AssignedPort=0
+FromACD=0
+QueueFull="QueueFull"
+CallResetTimer=300
+TempLocation=""
+QuestionnaireError=""
+ReturnToQueue=0
+MusicFirstTime=0
+Mon_EventID=0
+Mon_EventParameter=0
+PleaseHoldMsg=""
+
+! MUSIC/AUDIOTEXT VARIABLES
+AudioText1="Silence"
+AudioText2="Silence"
+AudioText3="Silence"
+AudioText4="Silence"
+AudioText5="Silence"
+AudioText6="Silence"
+AudioTextSegment=""
+Music1="Music21"
+Music2="Music22"
+Music3="Music23"
+Music4="Music24"
+Music5="Music25"
+Music6="Music26"
+MusicSegment=""
+PlayInProgress=0    
+
+!Help Desk Variables
+AssistanceAvailable=1
+RecordPassword="0815"
+OpeningTime="9:00 AM"
+ClosingTime="5:00 PM"
+ErrorCounter=0
+
+!========================================
+! Set System Defaults
+!========================================
+[BlockDefaults]
+Type=SetDefaults
+!DefaultWaitForMsg=0     	! False
+DefaultIgnoreMissingMsg=1    	! True
+DefaultFlushKeys=0     		! False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=Sorry
+DefaultTimeOutSec=5
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=Sorry
+DefaultLogCall=1     		! True
+DefaultLogMenu=1     		! True
+DefaultLogGetDigits=1     	! True
+DefaultLogPlay=1     		! True
+DefaultTerminator=""
+
+[ResetEnglishLanguage]
+type=SetGlobals
+Language="English"
+
+!------------------------------------
+! Help Desk application
+!------------------------------------
+[logHelpDesk]
+type=log
+logmsg="IncomingCall"
+
+[GetHDVariables1]
+type=VariableManager
+!Application="Courts"
+OnError=HelpDeskGreeting
+VarList="IsHoliday,AssistanceAvailable,OpeningTime,ClosingTime,RecordPassword"
+
+[RouteToHDQueue]
+type=changevariable
+ACD_RouteName="Jury"
+MusicFirstTime=1
+
+[HelpDeskGreeting]
+type=play
+msg="JuryGreeting"
+msg="JuryOptionalGreeting"
+
+[CheckHolidayToday]
+Type=Branch
+Var=IsHoliday
+1=PlayHolidayToday
+Next=CheckHelpDeskHours
+
+[PlayHolidayToday]
+Type=Play
+Msg="HolidayMessage"
+Next=Exit
+
+[CheckHelpDeskHours]
+type=branch
+var=AssistanceAvailable
+0=HelpDeskAfterHours
+Next=HelpDeskOpen
+
+[HelpDeskAfterHours]
+type=play
+!ttsstring="The help desk is closed"
+msg="HelpDeskClosed"
+!msg="HelpDeskOpen"
+msg="Silence"
+msg="Silence"
+msg="Silence"
+msg="Silence"
+msg="Silence"
+WaitForMsg=True
+Next=Exit
+
+[HelpDeskOpen]
+type=play
+msg="Silence"
+!msg="HelpDeskOpen"
+WaitForMsg=True
+
+[PleaseHold]
+type=play
+msg="PleaseHoldOperator"
+msg="MayBeRecorded"
+WaitForMsg=True
+
+[logACD]
+type=log
+logtype=ScriptEvent
+logmsg="Route to ACD-"%ACD_RouteName
+!Next=ACDAvailable
+Next=RouteCaller
+
+
+!============================================
+! ACD Call
+!============================================
+
+[ACDAvailable]     !p. 69
+Type=log
+
+[GetAssistanceAvailableVar]
+type=VariableManager
+VarList="AssistanceAvailable"
+OnError=LogACDAvailableVMFailure
+
+[CheckAssistanceAvailableForOperator]
+Type=Branch
+Var=AssistanceAvailable
+0=NoOperator
+1=PleaseHold
+Next=LogACDAvailableVMFailure
+
+[NoOperator]
+type=Play
+msg="NoOperatorAvailable"
+msg="HelpDeskHours"
+msgstring=OpeningTime%"|D|h:n a/p"
+msg="To"
+msgstring=ClosingTime%"|D|h:n a/p"
+msg="MondayThruFriday"
+Next=Exit
+
+[LogACDAvailableVMFailure]
+type=log
+logmsg="ACD Var Man Failure"
+
+[PleaseHold1]
+type=play
+msg="PleaseHoldMsg"
+WaitForMsg=True
+
+[logACD1]
+type=log
+logmsg="Route to ACD"
+
+[SetAcdCallReference]
+type=ChangeVariable
+@CallReference="AcdCall"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller.  Note that this block never
+!  falls through and executes the Next block.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RouteCaller]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+OnError=AcdRouteError
+OnAgentConnecting=AcdAgentConnecting
+OnAgentConnected=AcdAgentConnected
+OnCallReturn=CallReturnFromAcd
+OnTimeout=RouteTimeout
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call Enters Queue
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[ACDWait1]
+!Needed to know if going into queue or not
+type=pause
+pausesec=1
+
+[LogACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[CheckCaller]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdRouteError
+OnTimeout=RouteTimeout
+
+[LogCheckACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[QueuePosition]
+type=branch
+var=@AcdPositionInQueue
+0=YouAreNext
+1=CurrentlyOne
+OnBelowRange=YouAreNext
+OnAboveRange=QueuePositionCheckForBad      !PlayQueuePosition
+
+[YouAreNext]
+type=play
+msg="NextInQueue"
+Next=ACDInQueue
+
+[CurrentlyOne]
+type=play
+msg="CurrentlyOne"
+Next=ACDInQueue
+
+[QueuePositionCheckForBad]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=PlayQueuePosition
+OnAboveRange=AcdError
+Next=AcdError
+
+[PlayQueuePosition]
+type=play
+msg="Currently"
+msgstring=@AcdPositionInQueue%"|N"
+msg="CallersAhead"
+
+[ACDInQueue]
+type=Play
+msg="$MusicOnHold1"
+msg="Silence"
+msg="$MusicOnHold2"
+msg="Silence"
+msg="$MusicOnHold3"
+msg="Silence"
+msg="$MusicOnHold4"
+msg="Silence"
+! Silence is placehold for on hold messages
+WaitForMsg=TRUE
+Next=CheckCaller
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Call is connecting to ACD Agent.  Play ring. 
+!     Queue 4 rings (4X6 sec) to limit logging.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnecting]
+type=Play
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+WaitForMsg=TRUE
+Next=AcdAgentConnecting
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call is connected to ACD Agent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnected]
+type=Pause
+PauseSec=60
+next=AcdAgentConnected
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call has returned from ACD 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnFromAcd]
+type=Branch
+var=@AcdRouteCode
+1=CallReturnErrorRoute
+2=CallReturnDefaultRoute
+3=QueueShutdown
+4=QueueFull
+5=EndCall	
+6=CallReturnAgentTransfer	
+7=CallReturnReleaseKeyPressed
+8=CallReturnConferenceConnected
+9=CallReturnAgentAwol
+11=StatE_EnglishToSupervisorsRoute
+12=StatE_EnglishToSpanishRoute
+OnBelowRange=AcdError
+OnAboveRange=AcdError
+Next=AcdError
+
+[CallReturnErrorRoute]
+type=Log
+LogMsg="Error Route"
+Next=QueueShutdown
+
+[CallReturnDefaultRoute]
+type=Log
+LogMsg="DefaultRoute"
+Next=QueueShutdown
+
+[QueueShutdown]
+type=Play
+msg="QueueShutdown"
+
+[logQueueShutdown]
+type=log
+logType=ScriptEvent
+logmsg="Queue Shutdown"
+Next=Exit
+
+[QueueFull]
+Type=Play
+msg="QueueFull"
+
+[logQueueFull]
+type=log
+logtype=ScriptEvent
+logmsg="QueueFull"
+Next=Exit
+
+[CallReturnAgentTransfer]
+type=log
+logmsg=ACD_Agent
+next=ACDInQueue
+	
+[CallReturnReleaseKeyPressed]
+type=log
+logmsg="Release Key Pressed"
+
+[AgentPressedRelease]
+type=Pause
+PauseSec=60
+Next=AgentPressedRelease
+
+[CallReturnConferenceConnected]
+type=Log
+LogMsg="ConferenceConnected"
+next=Exit
+
+[RouteTimeout]
+type=Play
+msg="AcdTimeout"
+next=Exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller after AWOL
+!  Uses Urgent priority.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnAgentAwol]
+type=log
+logmsg="AWOL"
+
+[RouteCallerAfterAwol]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+Priority="Urgent"
+OnError=AcdRouteError
+next=PauseAfterAWOL
+
+[PauseAfterAWOL]
+type=Pause
+PauseSec=1
+
+[CheckCallerAfterAWOL]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdError
+OnTimeout=AcdError
+
+[QueuePositionAfterAwol]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=ACDInQueue
+OnAboveRange=AcdError
+Next=AcdError
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Agent Routes
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[StatE_EnglishToSpanishRoute]
+type=log
+logmsg="Eng_To_Spanish"
+
+[SetRouteToSpanish]
+type=SetGlobals
+Language="English"
+
+[SetRouteVarSpanish]
+type=changeVariable
+CallerLanguage="English"
+ACD_RouteName="Jury-Spanish"
+Next=SetAcdCallReference
+
+[StatE_EnglishToSupervisorsRoute]
+type=log
+logmsg="Eng_To_Supervisors"
+
+[SetRouteToSupervisors]
+type=SetGlobals
+Language="English"
+
+[SetRouteVarSupervisors]
+type=changeVariable
+CallerLanguage="English"
+ACD_RouteName="Jury-Supervisors"
+Next=SetAcdCallReference
+
+[AcdRouteError]
+type=Play
+FlushPlayQueue=True
+Msg="QueueShutdown"
+Next=CheckLoopingError
+
+[AcdError]
+type=Play
+FlushPlayQueue=True
+msg="SystemProblem"
+WaitForMsg=TRUE
+Next=Exit
+
+[CheckLoopingError]
+type=branch
+var=ErrorCounter
+1=Exit
+OnAboveRange=Exit
+Next=Exit
+
+![CheckIfLoggedIn]
+!type=branch
+!var=JurorLoggedIn
+!0=MainMenu
+!1=MainMenu
+!===================================
+! End Routines
+!===================================
+[Sorry]
+type=play
+msg="WeAreSorry"
+Next=ACDAvailable
+
+[Exit]
+type=play
+msg="ThankYouForCalling"
+WaitForMsg=true
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=true
+
+{
+[WaitForCallerdisconnect]
+type=Pause
+PauseSec=60
+! placeholder for cvp 2.18 bug
+}
+
+[EndCall]
+type=CallControl
+Command=Disconnect
+
+[TerminateCall]
+type=Terminate
+!!End Of Script Nothing Goes Below This

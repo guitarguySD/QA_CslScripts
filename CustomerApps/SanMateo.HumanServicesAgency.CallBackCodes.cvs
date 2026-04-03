@@ -1,0 +1,723 @@
+! San Mateo Human Services Administration Script
+! Case Worker Call Management System
+! Version 0.1	
+!      3/4/015 RWS initial script
+! Version 0.2 TB Added Star key logic to Sorry and DB down 
+! Version 4/13/15 TB Added transfer to Benefits Telecenter
+! Version 4/20/15 TB Modified retries to 2
+! Version 4/27/15 EB removed variables no longer needed
+! Version 1.0 20200115 RR Added branch to detect 7 digit extensions and prepend 91650 so that we can dial outside numbers. This will only work if the A/C stays 650.
+! Version 1.6 20200324 RR Added more logic to allow area codes other than 650. Translation is: (6=650, 4=415, 8=408, 5=510) example extension 63018423 will dial 650-301-8423)
+
+! Version 1.0SHS 1/27/2023 RR Initial script from premist as starting point for SHS solution
+! Version 2.0 1.30.2023 TB CVS conversion
+! Version 2.0.1 5/24/24 RR Added Stored Proc return for owner name of call code. Also need new datadefinition. Needed for Portal release 10.2 Added ring cycle play to transfers
+! Version 3 DG - Added new Call Control API to replace database block
+
+[ScriptSetup]
+type=SetGlobals
+Language="English"
+MaxCallSec=14400
+OnMaxCallSec=HangupCall
+MaxCallErrors=12
+OnMaxCallErrors=HangupCall
+OnCallDisconnect=HangupCall
+OnMissingMsg=HangupCall
+OnScriptError=HangupCall
+AllowOnDisconnect=True
+LogTrace=True
+
+!========================================
+! Set System Defaults
+!========================================
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=True
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=StatE_Sorry
+DefaultTimeOutSec=5
+DefaultTimeOutMsg="TimeOut"
+DefaultMaxTimeOuts=2
+DefaultOnMaxTimeOuts=StatE_Sorry
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+[DefineSetupVariable]
+Type=DefineVars
+
+! url for running on hsahrbrsonant
+!WebServiceURL="http://localhost/CallManagement/Service/CallbackCode.asmx"
+!XmlDataFiles="D:\Sonant\HSA\TestFile\"
+RequestMode=0       ! 0=MM_Web Service Production mode
+                    ! 1=Web Service Test mode
+                    ! 2=Local Test Mode
+! SHSChange
+HoldResult=""
+!
+CallerLanguage="English"
+ApplicationId=0
+CallId=0
+Active=""
+CallBackCode=0
+CallBackCodeState=15
+CallCount=0
+!CaseWorkerExtension=0
+UserName=""
+CreateDateTime=""
+Description=""
+Result=""
+ResultMessage=""
+UserId=0
+Department="SanMateoCounty"
+EnteredRecordPassword=0
+ExtenstionLength=""
+HostMusic="Music21"
+Music1="Music21"
+Music2="Music22"
+Music3="Music23"
+Music4="Music24"
+Music5="Music25"
+Music6="Music26"
+MusicFirstTime=1
+MusicSegment="0"
+NewRecording=0
+NumberOfDigits=0
+PhraseIndex=0
+PhraseToRecord=""
+RecordPath=""
+RetryCounter=0
+TransferDialString=""
+TransferNumber=""
+
+! Variable Manager Variables
+RecordPassword=""
+
+
+[CreateCallControlAPIVars]
+type=DefineVars
+CallControlBaseUrl="https://qa3.sonant.com/CCIntegrationService/api/ivr"
+GetCallCodeEndpoint="/getcallcode"
+CustomerName="SanMateo"
+DepartmentName="HumanServicesAgency"
+ApplicationName="CallBackCodes"
+CallControlUrl=""
+CallReference=""
+PhoneExtension=""
+NumberOfCalls=""
+OwnedByUserName=""
+IsSuccess=""
+ErrorMessage=""
+CallCode=""
+CallCodeReturn=""
+BenefitsTelecenter="6508023395"
+ApiSuccess=""
+ApiError=""
+
+[SetCallControlUrlForRestApi]
+type=ChangeVariable
+CallControlUrl=CallControlBaseUrl%GetCallCodeEndpoint%"?customerName="%CustomerName%"&departmentName="%DepartmentName%"&applicationName="%ApplicationName%"&callId="%@CallId%"&callCode="
+
+[LogCallControlUrl]
+type=Log
+var=CallControlUrl
+
+
+
+! !-----------------------------------
+! [InitializeVariables]
+! Type=ChangeVariable
+! ApplicationId=0
+! CallId=0
+! Active=""
+! CallBackCode=0
+! CallBackCodeState=15
+! CallCount=0
+! CaseWorkerExtension=0
+! CreateDateTime=""
+! Description=""
+! Result=""
+! ResultMessage=""
+! UserId=0
+! Department="HS"
+! EnteredRecordPassword=0
+! ExtenstionLength=""
+! HostMusic="Music21"
+! Music1="Music21"
+! Music2="Music22"
+! Music3="Music23"
+! Music4="Music24"
+! Music5="Music25"
+! Music6="Music26"
+! MusicFirstTime=1
+! MusicSegment="0"
+! NewRecording=0
+! NumberOfDigits=0
+! PhraseIndex=0
+! PhraseToRecord=""
+! RecordPath=""
+! RetryCounter=0
+! TransferDialString=""
+
+! Variable Manager Variables
+!RecordPassword=""
+
+[ResetEnglishDirectory]
+Type=SetGlobals
+Language="English"    
+
+[GetVMVariables] 
+type=VariableManager
+Application="CallBackCodes"
+OnError=VMError
+VarList="RecordPassword"
+Next=Greeting
+
+[VMError]
+Type=Log
+LogMsg="VM_Error"
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[Greeting]   ! page 3 of Call Flow
+Type=Play
+Msg="Greeting"
+Msg="OptionalGreeting"
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[SelectLanguage]  ! page 4 of Call Flow
+Type=Menu
+Msg="LanguageMenu"
+OnKey1=StatE_English
+OnKey2=StatE_Spanish
+OnKeyPound=StatE_Admin
+MaxBadKeys=2
+BadKeyMsg="InvalidEntry"
+OnMaxBadKeys=StatE_English
+TimeOutSec=2
+MaxTimeOuts=0
+TimeOutMsg="Timeout"
+OnMaxTimeOuts=StatE_English
+FlushKeys=True
+Next=StatE_English
+
+[StatE_English]
+Type=Log
+LogMsg="Call English"
+
+[SetEnglish]
+Type=SetGlobals
+Language="English"
+!Next=CheckOfficeOpen
+Next=GetCallBackCode
+
+[StatE_Spanish]
+Type=Log
+LogMsg="Call Spanish"
+
+[SetSpanish]
+Type=SetGlobals
+Language="Spanish"
+!Next=CheckOfficeOpen
+Next=GetCallBackCode
+
+[StatE_Admin]
+Type=Log
+LogMsg="Admin Function"
+Next=AdminFunction
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[GetCallBackCode]  ! page 5 of Call Flow
+Type=ChangeVariable
+RetryCounter=0
+
+[RequestCallBackCode]
+Type=Play
+Msg="EnterCallBackCode"
+
+[GetCallBackCodeDigits]
+Type=GetDigits
+Var=CallBackCode
+MinDigits=3
+MaxDigits=6
+CountVar=NumberOfDigits
+Terminator="#"
+MaxTimeouts=0
+TimeoutSec=5
+OnMaxTimeouts=TestCallBackCodeRetry
+Next=CheckNumberOfDigits
+
+[CheckNumberOfDigits]
+Type=Branch
+Var=NumberOfDigits
+3=RetrieveExtension
+6=RetrieveExtension
+OnBelowRange=TestCallBackCodeRetry
+OnAboveRange=TestCallBackCodeRetry
+Next=RetrieveExtension
+
+[TestCallBackCodeRetry]
+Type=Branch
+Var=RetryCounter
+2=StatE_SorryCallBackCode
+OnBelowRange=IncrementCallBackCodeRetry
+OnAboveRange=StatE_SorryCallBackCode
+
+[IncrementCallBackCodeRetry]
+Type=ChangeVariable
+Increment=RetryCounter
+
+[PlayInvalidCallBackCode]
+Type=Play
+Msg="InvalidCallBackCode"
+Msg="TryAgain"
+Next=GetCallBackCodeDigits
+
+[StatE_SorryCallBackCode]
+Type=Log
+LogMsg="NumberEntryError"
+Next=StatE_Sorry
+
+[RetrieveExtension]
+type=ChangeVariable
+CallId = @CallId
+
+
+[ExecuteDbBlock]
+type=log
+!type=Database
+!Command=Execute
+!DataDefinition=uspIvrGetCallbackCode
+!OnDbError=DbBlockError3
+!OnNoData=NoDbCallcodeFound
+
+
+[CallCallControlApi]
+type=RestApi
+Method=GET
+Url=CallControlUrl
+AuthType=None
+TimeoutSeconds=30
+ResponseScript="""
+using System.Text.Json;
+
+var root = JsonDocument.Parse(response).RootElement;
+
+// Root level properties
+vars["CallCodeReturn"]          = root.TryGetProperty("CallCode",          out var callCode)          ? callCode.GetInt32().ToString()       : "0";
+vars["Active"]            = root.TryGetProperty("Active",            out var active)            ? active.GetBoolean().ToString()       : "false";
+vars["PhoneExtension"]    = root.TryGetProperty("PhoneExtension",    out var phoneExtension)    ? phoneExtension.GetString()    ?? ""  : "";
+vars["NumberOfCalls"]     = root.TryGetProperty("NumberOfCalls",     out var numberOfCalls)     ? numberOfCalls.GetInt32().ToString()  : "0";
+vars["OwnedByUserName"]   = root.TryGetProperty("OwnedByUserName",   out var ownedByUserName)   ? ownedByUserName.GetString()   ?? ""  : "";
+vars["IsSuccess"]         = root.TryGetProperty("IsSuccess",         out var isSuccess)         ? isSuccess.GetBoolean().ToString()    : "false";
+vars["ErrorMessage"]      = root.TryGetProperty("ErrorMessage",      out var errorMessage)      ? errorMessage.GetString()      ?? ""  : "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=CallControlApiError
+Next=LogCallControlApiResponse
+
+[CallControlApiError]
+type=Log
+
+[LogCallControlApiResponse]
+type=Log
+var=CallCode,CallCodeReturn,Active,PhoneExtension,NumberOfCalls,OwnedByUserName,IsSuccess,ErrorMessage
+
+[CheckApiStatus]
+type=branch
+var=ApiSuccess
+true=PlaySuccessMessage
+false=PlayFailureMessage
+
+[PlaySuccessMessage]
+type=Play
+TTSString="The call control API call was successful. "
+WaitForMsg=True
+Next=CheckCallCodeResults
+
+[PlayFailureMessage]
+type=Play
+TTSString="The call control API call failed."
+WaitForMsg=True
+Next=StatE_Sorry
+
+[CheckCallCodeResults]
+type=Branch
+var=IsSuccess
+true=LogCallcodeFound
+false=NoDbCallcodeFound
+
+[LogCallcodeFound]
+type=log
+logmsg="Callcode found"
+Next=CheckDeactivateSetting
+
+! [LogCallCodeFoundResults]
+! type=log
+! logmsg="DB Result="%@Result%", Message ="%@ResultMessage
+! Next=CheckRetrieveResultCode
+
+! [DbBlockError3]
+! type=log
+! logmsg="DB Result="%@Result%", Message ="%@ResultMessage
+! Next=DBUnavailable
+
+[NoDbCallcodeFound]
+type=log
+logmsg="No Callcode"
+next=DBUnavailable
+
+[CheckDeactivateSetting]
+Type=Branch
+Var=Active
+1=StatE_Active
+0=StatE_Deactivated
+Next=LogDBError
+
+[StatE_Active]
+Type=Log
+LogMsg="NumberActive"
+
+[SetCaseWorkerExtension]
+Type=ChangeVariable
+TransferDialString=PhoneExtension
+Next=TransferPleaseHold
+
+[StatE_Deactivated]
+Type=Log
+LogMsg="NumberDeactivated"
+
+[TestCallBackCodeRetryForDeactivated]
+Type=Branch
+Var=RetryCounter
+2=StatE_SorryCallBackCode
+OnBelowRange=IncrementCallBackCodeRetryForDeactivated
+OnAboveRange=StatE_SorryCallBackCode
+
+[IncrementCallBackCodeRetryForDeactivated]
+Type=ChangeVariable
+Increment=RetryCounter
+
+[PlayDeactivated]
+Type=Play
+Msg="CallBackCode"
+MsgString=CallBackCode % "|C"
+Msg="Deactivated"
+Msg="TryAgain"
+Next=GetCallBackCodeDigits
+
+[CallBackCodeNotFound]
+Type=Branch
+Var=RetryCounter
+2=StatE_CallBackCodeNotFound
+OnBelowRange=IncrementCallBackCodeNotFound
+OnAboveRange=StatE_CallBackCodeNotFound
+
+[IncrementCallBackCodeNotFound]
+Type=ChangeVariable
+Increment=RetryCounter
+
+[PlayCallBackCodeNotFound]
+Type=Play
+Msg="CallBackCode"
+MsgString=CallBackCode % "|C"
+Msg="NotFound"
+Msg="TryAgain"
+Next=GetCallBackCodeDigits
+
+[StatE_CallBackCodeNotFound]
+Type=Log
+LogMsg="NumberNotFound"
+Next=StatE_Sorry
+
+[LogDBError]
+Type=Log
+LogMsg="Invalid CallBackCode State=" % CallBackCodeState
+
+[SetCaseWorkerExtensionForDBError]
+Type=ChangeVariable
+TransferDialString=PhoneExtension
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TransferPleaseHold]
+type=log
+var=TransferDialString
+
+[TransferPleaseHold2]
+type=play
+msg="PleaseHoldExtensionTransfer"
+WaitForMsg=True
+
+[StatE_LogUser]
+type=log
+var=UserName
+
+[TransferAttempt]
+type=log
+logmsg="Xfer Attempts"
+LogType=ScriptEvent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[PlaySilenceToPauseForHangup]
+type=play
+msg="Silence"
+WaitForMsg=True
+
+[PlayRinging]
+type=play
+msg="Ringtone"
+msg="Ringtone"
+msg="Ringtone"
+msg="Ringtone"
+
+[BridgeTransferHold]
+type=CallControl
+Command=Hold
+PartyName="Inbound"
+ResultVar="HoldResult"
+OnError=BTLogCallControlHoldError
+Next=LogBTPhoneNumber
+
+[BTLogCallControlHoldError]
+type=Log
+Logmsg="HoldResult = "%HoldResult
+Next=BTError
+
+[LogBTPhoneNumber]
+type=Log
+Logmsg="TransferPhoneNumber = "%TransferDialString%" TransferOriginationNumber = "%@OriginationAddress
+
+[BTCall]
+type=Call
+!OriginationNumber="6508999902"
+OriginationNumber=@OriginationAddress
+DestinationNumber=TransferDialString
+PartyName="CaseWorker"
+CallResultVar="CallResult"
+OnCallError=LogCallBTError
+Next=BTPauseBeforePutSecondCallOnHold
+
+[LogCallBTError]
+type=Log
+Logmsg="CallResult = "%CallResult
+Next=BTError
+
+[BTPauseBeforePutSecondCallOnHold]
+type=Pause
+PauseMSec=100
+
+[BTTakeCallOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=BTLogCallControlHoldError
+
+[BTStopOnHoldPlay]
+type=play
+flushplayqueue=true
+
+[BTBridgeCalls]
+type=CallControl
+Command=Bridge
+OnError=LogCallControlBridgeTransferError
+Next=HangupCall
+
+[LogCallControlBridgeTransferError]
+type=Log
+Logmsg="CallControlBridgeError"
+Next=BTErrorOffHold
+
+[BTErrorOffHold]
+type=CallControl
+Command=OffHold
+!PartyName="Inbound"
+OnError=BTLogCallControlHoldError
+Next=BTError
+
+[BTError]
+type=Play
+FlushPlayQueue=True
+Next=StatE_Sorry
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_Sorry]  ! page 7 of Call Flow
+Type=Log
+LogMsg="Sorry"
+
+[PlaySorry]
+Type=menu
+Msg="Sorry"
+OnKey1=SetForBenefitsTelecenter
+OnKeyStar=PlaySorry
+TimeoutSec=3
+MaxBadKeys=1
+OnMaxBadKeys=Goodbye
+MaxTimeouts=1
+OnMaxTimeouts=Goodbye
+
+[SetForBenefitsTelecenter]
+type=ChangeVariable
+TransferDialString=BenefitsTelecenter 
+!full number 650-594-5917
+!switch number 650-802-3395
+Next=TransferPleaseHold
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!=================================
+! Admin Function  
+!=================================
+[AdminFunction]   ! Page 8 of Call Flow
+type=GetDigits
+Var=EnteredRecordPassword
+msg="Silence"
+MinDigits=4
+MaxDigits=4
+Terminator=""
+MaxTimeouts=0
+TimeoutSec=6
+OnMaxTimeouts=Goodbye
+OnKeyPound=Goodbye
+OnKeyStar=Goodbye
+
+[CheckAdminPassword]
+type=VariableManager
+Application="CallBackCodes"
+OnError=VMerror 
+VarList="RecordPassword"
+
+[CompareAdminPassword]
+type=branch
+var=EnteredRecordPassword
+RecordPassword=StatE_RecordOptionalGreeting
+
+[StatE_PasswordBad]
+Type=Log
+LogMsg="PasswordFailed"
+Next=Goodbye
+
+[StatE_RecordOptionalGreeting]
+Type=Log
+LogMsg="PasswordGood"
+Next=RecordOptionalGreeting
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[RecordOptionalGreeting]  ! page 9 of Call Flow
+Type=ChangeVariable
+RetryCounter=3
+
+[RecordOptionalGreetingMenu]
+type=Recognize
+PromptMsgDTMF="RecordMenu"
+BadKeyMsg="TryAgainDTMF"
+!MaxBadKeys=3
+!OnMaxBadKeys=Goodbye
+OnKey1=RecordOptionalGreetingRecord
+OnKey2=PlayOptionalGreeting
+OnKey3=Goodbye
+OnKeyPound=DecrementRetryCounter
+OnKeyStar=DecrementRetryCounter
+OnDTMFError=DecrementRetryCounter
+BadKeyMsg="InvalidEntry"
+Next=Goodbye
+
+[RecordOptionalGreetingRecord]
+Type=ChangeVariable
+PhraseToRecord="D:\Sonant\VoiceFiles\HumanServices\English\OptionalGreeting"
+Next=RecordPhraseOptionalGreeting
+
+[RecordPhraseOptionalGreeting]
+type=Record
+msg="RecordPromptDTMF"
+FlushKeys=True
+PlayBeep=True
+MaxRecordingSec=300
+!VoxTimeoutSec=5
+!WaitForMsg=True
+FileName=PhraseToRecord
+Next=RecordOptionalGreetingMenu
+
+[PlayOptionalGreeting]
+type=play
+msg=PhraseToRecord
+
+[SetRetryTo3]
+Type=ChangeVariable
+RetryCounter=3
+Next=RecordOptionalGreetingMenu
+
+[DecrementRetryCounter]
+Type=ChangeVariable
+decrement=RetryCounter
+
+[CheckRetryCounter]
+Type=Branch
+Var=RetryCounter
+0=Goodbye
+Next=RecordOptionalGreetingMenu
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[DBUnavailable]  ! page 10 of Call Flow
+Type=menu
+Msg="TechnicalDifficulty"
+OnKey1=SetForBenefitsTelecenter
+OnKeyStar=DBUnavailable
+TimeoutSec=3
+MaxBadKeys=1
+OnMaxBadKeys=StatE_DBUnavailable
+MaxTimeouts=1
+OnMaxTimeouts=StatE_DBUnavailable
+
+[StatE_DBUnavailable]
+Type=Log
+LogMsg="DB Unavailable"
+Next=Goodbye
+
+[Goodbye]  ! page 10 of Call Flow
+type=play
+msg="ThankYou"
+msg="Goodbye"
+
+[HangupCall]
+type=play
+msg="Silence"
+WaitForMsg=True
+
+[EndCallWithDisconnectHandler]                                 
+type=SetGlobals
+AllowOnDisconnect=False
+next=EndCall
+
+[CallDisconnectHandler]
+type=Log
+
+! Disable OnDisconnect
+[EndCall]
+type=SetGlobals
+AllowOnDisconnect=False
+
+! Branch here to end call with the disconnect handler
+[EndCall2]                                 
+type=CallControl
+Command=Disconnect
+
+[FinalBlock]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate
+
+! Comment
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!++++++++++++++++++++++++++END OF SCRIPT+++++++++++++++++++++++++++++++++++++++++++++

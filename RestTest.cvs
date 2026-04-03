@@ -65,6 +65,25 @@ ApiJurorInformation=""
 ApiErrorCode=""
 ApiStatus=""
 
+[CreateCallControlVars]
+type=DefineVars
+CallReference=""
+CustomerName="SanMateo"
+DepartmentName="HumanServicesAgency"
+ApplicationName="CallBackCodes"
+Active=""
+PhoneExtension=""
+NumberOfCalls=""
+OwnedByUserName=""
+IsSuccess=""
+ErrorMessage=""
+CallCode=""
+CallCodeReturn=""
+CallId=""
+CallControlBaseUrl="https://qa3.sonant.com/CCIntegrationService/api/ivr"
+GetCallCodeEndpoint="/getcallcode"
+CallControlUrl=""
+
 [CreateNuemoVars]
 type=DefineVars
 NeumoBaseUrl="https://fjd-sandbox.avenujury.com/base/rest/ivr"
@@ -152,12 +171,105 @@ var=PingEndpoint
 
 [RestTestMenu]
 type=menu
-ttsstring="To test the Neumo API, press 1. To test the Minnesota API, press 2. To test the JSI API, press 3. To exit, press 9."
+ttsstring="Main Menu. New-mo API, press 1. Minnesota API, press 2. Call Control API version 2, press 3. To exit, press 9."
 OnKey1=NeumoTest
 OnKey2=MnApiTest
-!OnKey3=JSITest
+OnKey3=CallControlTest
 OnKey9=ThankYouGoodbyeExit
 
+!======================================
+! Call Control API Tests
+[CallControlTest]
+type=Log
+
+[SetCallControlVars]
+type=ChangeVariable
+CallControlUrl=CallControlBaseUrl%GetCallCodeEndpoint%"?customerName="%CustomerName%"&departmentName="%DepartmentName%"&applicationName="%ApplicationName%"&callId="%@CallId%"&callCode="
+
+[LogCallControlUrl]
+type=Log
+var=CallControlUrl
+
+[GetCallCodeValue]
+type=GetDigits
+ttsstring="Please enter your three digit call code"
+Var=CallCode
+MinDigits=3
+MaxDigits=3
+CountVar=NumberOfDigits
+Terminator="#"
+MaxTimeouts=0
+TimeoutSec=5
+OnMaxTimeouts=EndCallCodeTest
+Next=ConstructCallCodeUrl 
+
+[EndCallCodeTest]
+type=Play
+ttsstring="No input received. Ending call."
+Next=EndCall
+
+[ConstructCallCodeUrl]
+type=ChangeVariable
+CallControlUrl=CallControlUrl%CallCode
+Next=LogFinalCallControlUrl
+
+[LogFinalCallControlUrl]
+type=Log
+var=CallControlUrl
+
+[CallCallControlApi]
+type=RestApi
+Method=GET
+Url=CallControlUrl
+AuthType=None
+TimeoutSeconds=30
+ResponseScript="""
+using System.Text.Json;
+
+var root = JsonDocument.Parse(response).RootElement;
+
+// Root level properties
+vars["CallCodeReturn"]          = root.TryGetProperty("CallCode",          out var callCode)          ? callCode.GetInt32().ToString()       : "0";
+vars["Active"]            = root.TryGetProperty("Active",            out var active)            ? active.GetBoolean().ToString()       : "false";
+vars["PhoneExtension"]    = root.TryGetProperty("PhoneExtension",    out var phoneExtension)    ? phoneExtension.GetString()    ?? ""  : "";
+vars["NumberOfCalls"]     = root.TryGetProperty("NumberOfCalls",     out var numberOfCalls)     ? numberOfCalls.GetInt32().ToString()  : "0";
+vars["OwnedByUserName"]   = root.TryGetProperty("OwnedByUserName",   out var ownedByUserName)   ? ownedByUserName.GetString()   ?? ""  : "";
+vars["IsSuccess"]         = root.TryGetProperty("IsSuccess",         out var isSuccess)         ? isSuccess.GetBoolean().ToString()    : "false";
+vars["ErrorMessage"]      = root.TryGetProperty("ErrorMessage",      out var errorMessage)      ? errorMessage.GetString()      ?? ""  : "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=CallControlApiError
+Next=LogCallControlApiResponse
+
+[CallControlApiError]
+type=Log
+
+[LogCallControlApiResponse]
+type=Log
+var=CallCode,CallCodeReturn,Active,PhoneExtension,NumberOfCalls,OwnedByUserName,IsSuccess,ErrorMessage
+
+[CheckApiStatus]
+type=branch
+var=ApiSuccess
+true=PlaySuccessMessage
+false=PlayFailureMessage
+
+[PlaySuccessMessage]
+type=Play
+TTSString="The call control API call was successful. Thank you for your patience."
+WaitForMsg=True
+Next=RestTestMenu
+
+[PlayFailureMessage]
+type=Play
+TTSString="The call control API call failed. Please try again later or contact support."
+WaitForMsg=True
+Next=RestTestMenu
+
+!======================================
+! Neumo API Tests
 [NeumoTest]
 type=Log
 
