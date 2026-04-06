@@ -230,7 +230,6 @@ CourtPhoneNumber="4024446221"
 CourtFaxNumber="4024441977"
 AJ_JurorID=""
 AJ_DOB=""
-CT_JurorIDFromRetrieval=""
 CT_DOBFromRetrieval=""
 CT_JuryTestMode=0
 ExcusalInfoMsg=""
@@ -785,6 +784,7 @@ RetryCounter=0
 [PlayRetrieveRecord]
 type=Play
 msg="PleaseHoldRetrieveRecord"
+WaitForMsg=True
 Next=LogGetJurorInfoInput
 
 [GetJurorRecord]	! This entry point is for refreshing the juror record
@@ -923,19 +923,6 @@ Next=JurorMenu
 [StatE_RecordFound]
 type=Log
 logmsg="Record found"
-
-! Known issue, Clearview doesn't always set BioInfoComplete=true
-! So when the script refreshes their record, it comes back as false when it's true
-! If they completed Bio info in this call, set BioComplete = true
-[CheckBioInfoCollected]
-type=branch
-var=isBioInfoCollected
-1=ResetBioInfoComplete
-Next=CheckJurorIDReturned
-
-[ResetBioInfoComplete]
-type=changeVariable
-CT_BioComplete=1
 
 [LogLocationInfo]
 type=log
