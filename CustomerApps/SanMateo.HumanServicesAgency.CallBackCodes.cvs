@@ -49,16 +49,7 @@ DefaultTerminator=""
 
 [DefineSetupVariable]
 Type=DefineVars
-
-! url for running on hsahrbrsonant
-!WebServiceURL="http://localhost/CallManagement/Service/CallbackCode.asmx"
-!XmlDataFiles="D:\Sonant\HSA\TestFile\"
-RequestMode=0       ! 0=MM_Web Service Production mode
-                    ! 1=Web Service Test mode
-                    ! 2=Local Test Mode
-! SHSChange
 HoldResult=""
-!
 CallerLanguage="English"
 ApplicationId=0
 CallId=0
@@ -97,8 +88,7 @@ TransferNumber=""
 ! Variable Manager Variables
 RecordPassword=""
 
-
-[CreateCallControlAPIVars]
+[CallControlAPIVars]
 type=DefineVars
 CallControlBaseUrl="https://qa3.sonant.com/CCIntegrationService/api/ivr"
 GetCallCodeEndpoint="/getcallcode"
@@ -117,6 +107,7 @@ CallCodeReturn=""
 BenefitsTelecenter="6508023395"
 ApiSuccess=""
 ApiError=""
+ApiStatusCode=""
 
 [SetCallControlUrlForRestApi]
 type=ChangeVariable
@@ -125,46 +116,6 @@ CallControlUrl=CallControlBaseUrl%GetCallCodeEndpoint%"?customerName="%CustomerN
 [LogCallControlUrl]
 type=Log
 var=CallControlUrl
-
-
-
-! !-----------------------------------
-! [InitializeVariables]
-! Type=ChangeVariable
-! ApplicationId=0
-! CallId=0
-! Active=""
-! CallBackCode=0
-! CallBackCodeState=15
-! CallCount=0
-! CaseWorkerExtension=0
-! CreateDateTime=""
-! Description=""
-! Result=""
-! ResultMessage=""
-! UserId=0
-! Department="HS"
-! EnteredRecordPassword=0
-! ExtenstionLength=""
-! HostMusic="Music21"
-! Music1="Music21"
-! Music2="Music22"
-! Music3="Music23"
-! Music4="Music24"
-! Music5="Music25"
-! Music6="Music26"
-! MusicFirstTime=1
-! MusicSegment="0"
-! NewRecording=0
-! NumberOfDigits=0
-! PhraseIndex=0
-! PhraseToRecord=""
-! RecordPath=""
-! RetryCounter=0
-! TransferDialString=""
-
-! Variable Manager Variables
-!RecordPassword=""
 
 [ResetEnglishDirectory]
 Type=SetGlobals
@@ -285,10 +236,11 @@ Next=StatE_Sorry
 [RetrieveExtension]
 type=ChangeVariable
 CallId = @CallId
-
+CallControlUrl=CallControlUrl%CallBackCode
 
 [ExecuteDbBlock]
 type=log
+var=CallControlUrl
 !type=Database
 !Command=Execute
 !DataDefinition=uspIvrGetCallbackCode
@@ -324,6 +276,8 @@ Next=LogCallControlApiResponse
 
 [CallControlApiError]
 type=Log
+var=ApiStatusCode,ApiSuccess,ApiError
+Next=PlayFailureMessage
 
 [LogCallControlApiResponse]
 type=Log
@@ -351,33 +305,23 @@ Next=StatE_Sorry
 type=Branch
 var=IsSuccess
 true=LogCallcodeFound
-false=NoDbCallcodeFound
+false=CallBackCodeNotFound
 
 [LogCallcodeFound]
 type=log
 logmsg="Callcode found"
-Next=CheckDeactivateSetting
-
-! [LogCallCodeFoundResults]
-! type=log
-! logmsg="DB Result="%@Result%", Message ="%@ResultMessage
-! Next=CheckRetrieveResultCode
-
-! [DbBlockError3]
-! type=log
-! logmsg="DB Result="%@Result%", Message ="%@ResultMessage
-! Next=DBUnavailable
+Next=CheckCallCodeActive
 
 [NoDbCallcodeFound]
 type=log
 logmsg="No Callcode"
 next=DBUnavailable
 
-[CheckDeactivateSetting]
+[CheckCallCodeActive]
 Type=Branch
 Var=Active
-1=StatE_Active
-0=StatE_Deactivated
+true=StatE_Active
+false=StatE_Deactivated
 Next=LogDBError
 
 [StatE_Active]
