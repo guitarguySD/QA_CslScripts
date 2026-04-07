@@ -232,7 +232,7 @@ ExcusalInfoMsg3=""
 InReportingWeek=0
 InReportingWeekCode=""
 InOnCallCallinWindow=""
-isReportingDateToday=0
+isTodayReportingDate=0
 isPastReportingDateFtaCutoff=0
 JurorId=""
 JurorDOB=""
@@ -817,9 +817,14 @@ RequestScript="""
 """
 ResponseScript="""
 using System.Text.Json;
+var REPORTING_WEEK_CUTOFF_HOUR = vars["Reporting_Week_Cutoff_Hour"] != "" ? int.Parse(vars["Reporting_Week_Cutoff_Hour"]) : 18; // Default to 6 PM if not set
+var ONCALL_START_HOUR = vars["OnCall_Start_Hour"] != "" ? int.Parse(vars["OnCall_Start_Hour"]) : 18; // Default to 6 PM if not set
+var ONCALL_END_HOUR = vars["OnCall_End_Hour"] != "" ? int.Parse(vars["OnCall_End_Hour"]) : 10; // Default to 10 AM if not set
+var FTA_CUTOFF_HOUR = vars["Fta_Cutoff_Hour"] != "" ? int.Parse(vars["Fta_Cutoff_Hour"]) : 11; // Default to 11 AM if not set
 
 var root = JsonDocument.Parse(response).RootElement;
-
+var scheduledDate = "";
+var testDate=vars["ScheduledDate"];
 // Root level
 vars["CT_ResultCode"]    = root.TryGetProperty("status",    out var status)    ? status.GetString()    ?? "" : "";
 vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
@@ -833,15 +838,29 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     vars["CT_DOB"]               = juror.TryGetProperty("dob",               out v) ? v.GetString() ?? "" : "";
 
     vars["CT_FirstName"]         = juror.TryGetProperty("nameFirst",         out v) ? v.GetString() ?? "" : "";
-    //vars["CT_FirstInitial"]      = juror.TryGetProperty("nameFirst",         out v) ? (v.GetString() ?? "").Substring(0, Math.Min(1, (v.GetString() ?? "").Length)) : "";
+    vars["CT_FirstInitial"]      = juror.TryGetProperty("nameFirst",         out v) ? (v.GetString() ?? "").Substring(0, Math.Min(1, (v.GetString() ?? "").Length)) : "";
     vars["CT_LastName"]          = juror.TryGetProperty("nameLast",          out v) ? v.GetString() ?? "" : "";
-    //vars["CT_FullName"]          = $"{vars["CT_FirstName"]} {vars["CT_LastName"]}".Trim();
+    vars["CT_FullName"]          = $"{vars["CT_FirstName"]} {vars["CT_LastName"]}".Trim();
     vars["CT_Middle"]            = juror.TryGetProperty("nameMiddle",        out v) ? v.GetString() ?? "" : "";
     vars["CT_NameSuffix"]        = juror.TryGetProperty("nameSuffix",        out v) ? v.GetString() ?? "" : "";
     vars["CT_ReportingStatus"]   = juror.TryGetProperty("reportingStatus",   out v) ? v.GetString() ?? "" : "";
     // Combine JurorState and ReportingStatus 
     vars["CT_JurorState"] = vars["CT_JurorState"] == "Qualified" ? $"{vars["CT_JurorState"]}{vars["CT_ReportingStatus"]}" : vars["CT_JurorState"];
-    vars["CT_ScheduledDate"]     = juror.TryGetProperty("reportingDate",     out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime schDt) ? schDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
+    scheduledDate =
+        juror.TryGetProperty("reportingDate", out v) &&
+        v.GetString()?.Length == 8 &&
+        DateTime.TryParseExact(
+            v.GetString(),
+            "MMddyyyy",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None,
+            out DateTime schDt)
+        ? schDt.ToString("yyyy-MM-ddTHH:mm:ss")
+        : "";
+    //For testing 
+    scheduledDate = testDate;
+    vars["CT_ScheduledDate"]     = scheduledDate;
 
     vars["CT_ScheduledTime"]     = juror.TryGetProperty("reportingTime",     out v) ? v.GetString() ?? "" : "";
     vars["CT_LocationCode"]      = juror.TryGetProperty("courtLocationCode", out v) ? v.GetString() ?? "" : "";
@@ -851,15 +870,54 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     vars["CT_City"]              = juror.TryGetProperty("city",              out v) ? v.GetString() ?? "" : "";
     vars["CT_State"]             = juror.TryGetProperty("state",             out v) ? v.GetString() ?? "" : "";
     vars["CT_Zipcode"]           = juror.TryGetProperty("zipCode",           out v) ? v.GetString() ?? "" : "";
+
     vars["CT_ServiceStartDate"]  = juror.TryGetProperty("serviceStartDate",  out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime ssdDt) ? ssdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
     vars["CT_ServiceEndDate"]    = juror.TryGetProperty("serviceEndDate",    out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime sedDt) ? sedDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
     vars["CT_ReportingAtAfter"]  = juror.TryGetProperty("reportingAtAfter",  out v) ? v.GetString() ?? "" : "";
+
     vars["CT_BioComplete"]       = juror.TryGetProperty("bioComplete",       out v) ? v.GetBoolean().ToString() : "";
     vars["CT_PendingReview"]     = juror.TryGetProperty("pendingReview",     out v) ? (v.GetBoolean() ? "1" : "0") : "0";
     vars["CT_PoolID"]            = juror.TryGetProperty("poolID",            out v) ? v.GetString() ?? "" : "";
     vars["CT_LastPaymentAmount"] = juror.TryGetProperty("lastPaymentAmount", out v) ? v.GetString() ?? "" : "";
+
     vars["CT_LastPaymentDate"]   = juror.TryGetProperty("lastPaymentDate",   out v) && v.GetString()?.Length == 8 && DateTime.TryParseExact(v.GetString(), "MMddyyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime lpdDt) ? lpdDt.ToString("yyyy-MM-ddTHH:mm:ss") : "";
+
     vars["CT_LastMileage"]       = juror.TryGetProperty("lastMileage",       out v) ? v.GetString() ?? "" : "";
+
+    int inReportingWeekResult = 0;
+
+    DateTime scheduledDt;
+    DateTime now = DateTime.Now;
+    if (DateTime.TryParse(scheduledDate, out scheduledDt))
+    {
+        int dayOfWeek = (int)scheduledDt.DayOfWeek;
+        DateTime startOfWeek = scheduledDt.Date
+            .AddDays(-dayOfWeek - 3)
+            .AddHours(REPORTING_WEEK_CUTOFF_HOUR);
+
+        DateTime endOfWeek = scheduledDt.Date
+            .AddDays(5 - dayOfWeek)
+            .AddHours(REPORTING_WEEK_CUTOFF_HOUR);
+
+        inReportingWeekResult =
+            now > endOfWeek ? -1 :
+            now > startOfWeek ? 1 : 0;
+    }
+
+    //vars["InReportingWeekCode"] = inReportingWeekResult.ToString();
+    vars["InReportingWeek"] = inReportingWeekResult.ToString();
+
+    // Determine if currently in on-call call-in window (6 PM - 10 AM)
+    bool isInOvernightWindow = now.Hour >= ONCALL_START_HOUR || now.Hour < ONCALL_END_HOUR;
+    //vars["InOnCallCallinWindow"] = isInOvernightWindow ? "1" : "0";
+    vars["InCallinWindow"] = isInOvernightWindow ? "1" : "0";
+    bool isTodayReportingDate = DateTime.TryParse(scheduledDate, out DateTime schDt2) && schDt2.Date == now.Date;
+    vars["isTodayReportingDate"] = isTodayReportingDate ? "1" : "0";
+    DateTime ftaCutoffToday = now.Date.AddHours(FTA_CUTOFF_HOUR);
+    bool isPastReportingDateFtaCutoff = isTodayReportingDate && now >= ftaCutoffToday;
+    vars["isPastReportingDateFtaCutoff"] = isPastReportingDateFtaCutoff ? "1" : "0";
 }
 """
 StatusCodeVar=ApiStatusCode
@@ -1045,6 +1103,7 @@ var=CT_ResultCode,CT_ResultMessage
 type=log
 var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode
 
+! If the API does not return any dates, set postponement ineligible
 [CheckPostponeDates]
 type=branch
 var=PostponeDate1
@@ -1120,23 +1179,20 @@ type=branch
 var=CT_ScheduledDate
 ""=SkipCallinWindow
 
-! Returns inReportingWeek and isReportingDate
+! Returns inReportingWeek and isTodayReportingDate
 [ExecuteCalulateInReportingWeek]
 type=log
+var=CT_JurorID,CT_ScheduledDate,InReportingWeek, isTodayReportingDate
 !type=Javascript
 !Command="Execute"
 !DataDefinition="jsInReportingWeek"
 !OnJsError=LogJsErrorInReportingWeek
 
-[LogInReportingWeek]
-type=log
-var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
-!Next=CheckCallinWindow
 Next=CheckIfAfterFTACutoffTime
 
 [LogJsErrorInReportingWeek]
 type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isReportingDateToday
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
 Next=SkipCallinWindow
 
 !--------------------------------------------------
@@ -1186,10 +1242,6 @@ type=log
 [LogCallinWindow]
 type=log
 var=CT_JurorID, CT_ScheduledDate, inCallinWindow
-
-[ExtraLog4]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
 Next=VerifyName
 
 [LogJsErrorCallinWindow]
@@ -1584,7 +1636,7 @@ var=inCallinWindow
 ! If NOT in callin Window, check if Today is ReportingDate but they are calling in late
 [CheckisReportingDateToday]
 type=Branch
-var=isReportingDateToday
+var=isTodayReportingDate
 "true"=CheckIfPastFTACutoff
 "false"=CallbackTonightAfter5
 0=CallbackTonightAfter5
@@ -3589,12 +3641,12 @@ type=log
 
 [LogInReportingWeek2]
 type=log
-var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isReportingDateToday
+var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
 Next=SendTestSuccess
 
 [LogJsErrorInReportingWeek2]
 type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isReportingDateToday
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
 Next=Exit
 
 [SendTestSuccess]
