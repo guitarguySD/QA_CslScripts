@@ -15,9 +15,9 @@
 ! 09/15/23 - dwg - added telephone number capture
 ! 10/30/23 - dwg - fix call in window issues
 ! 11/09/23 - dwg - fix press # to hear again issue and Reporting date callin window issue
-! 03/06/24 - tb  - fixed CheckIsTodayReportingDate block; added "true", "false" to match output values
+! 03/06/24 - tb  - fixed CheckisReportingDateToday block; added "true", "false" to match output values
 ! 03/06/24 - eb  - removed caregiver and full time student from request excusal menu and their blocks
-! 03/14/24 - dwg - Added isAfterFTACutoffTime js utility
+! 03/14/24 - dwg - Added isPastReportingDateFtaCutoff js utility
 ! 09/17/25 - eb  - Douglas clone to CSK
 ! 03/27/26 - dwg - Update for new REST API block, Get Juror info section
 !
@@ -212,18 +212,11 @@ CT_Zipcode=""
 PostponeDate1=""
 PostponeDate2=""
 PostponeDate3=""
-CaptureJurorData=0	! If set to 1, the script will save the get juror info in an xml file
 FAQMessage=""
 CourtAddress=""
 CourtIntro=""
 EnteredJurorID=""
 inCallinWindow=0
-!inEveningCallinWindow=0
-isTodayReportingDate=0
-CallinStartTime=17
-CallinEndTime=10
-inReportingWeek=99
-isAfterFTACutoffTime=99
 FTACutoffTime=11
 TelephoneNumber="8584146660"
 CourtPhoneNumber="4024446221"
@@ -235,6 +228,19 @@ CT_JuryTestMode=0
 ExcusalInfoMsg=""
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
+! Neumo API variables
+InReportingWeek=0
+InReportingWeekCode=""
+InOnCallCallinWindow=""
+isReportingDateToday=0
+isPastReportingDateFtaCutoff=0
+JurorId=""
+JurorDOB=""
+ScheduledDate=""
+REPORTING_WEEK_CUTOFF_HOUR = 18; 
+ONCALL_START_HOUR = 18; 
+ONCALL_END_HOUR = 10;  
+FTA_CUTOFF_HOUR = 11; 
 
 ! BioInfo and Qualification Question variables
 Q1Answer=""
@@ -373,7 +379,7 @@ Language="English"
 
 [GetInitialVariables]
 type=VariableManager
-VarList="AssistanceAvailable,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,CallinStartTime,CallinEndTime,CourtPhoneNumber,CourtFaxNumber"
+VarList="AssistanceAvailable,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,ONCALL_START_HOUR,ONCALL_END_HOUR,CourtPhoneNumber,CourtFaxNumber"
 OnError=LogVMError1
 Next=SetOpeningClosingTimes
 
@@ -388,8 +394,8 @@ OperatorClosed="17:00:00"
 OperatorOpen="09:00:00"
 OpeningTime="09:00:00"
 ClosingTime="17:00:00"
-CallinStartTime="17" 	!This is for the nightly callin window
-CallinEndTime="10" 		!This is for the nightly callin window
+ONCALL_START_HOUR="17" 	!This is for the nightly callin window
+ONCALL_END_HOUR="10" 		!This is for the nightly callin window
 Next=StatE_CallStarts
 
 [SetOpeningClosingTimes]	! This is for ACD variables
@@ -1069,6 +1075,11 @@ CT_RequestType="Excuse"
 
 [GetExcuseEligibilityAJ]
 type=log
+!type=JavaScript
+!Command="Execute"
+!DataDefinition="CJ_CheckExcuseExemptDisqualify"
+!OnNoData=SetExcusalIneligible
+!OnJsError=LogJsErrorExcuseInfo
 Next=LogExcuseInfoResult
 
 [LogJsErrorExcuseInfo]
@@ -1112,6 +1123,10 @@ var=CT_ScheduledDate
 ! Returns inReportingWeek and isReportingDate
 [ExecuteCalulateInReportingWeek]
 type=log
+!type=Javascript
+!Command="Execute"
+!DataDefinition="jsInReportingWeek"
+!OnJsError=LogJsErrorInReportingWeek
 
 [LogInReportingWeek]
 type=log
@@ -1121,7 +1136,7 @@ Next=CheckIfAfterFTACutoffTime
 
 [LogJsErrorInReportingWeek]
 type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isReportingDateToday
 Next=SkipCallinWindow
 
 !--------------------------------------------------
@@ -1136,7 +1151,7 @@ type=log
 
 [LogFTACutoff]
 type=log
-var=isAfterFTACutoffTime
+var=isPastReportingDateFtaCutoff
 Next=CheckCallinWindow
 
 [LogJsErrorFTACutoff]
@@ -1163,6 +1178,10 @@ var=CT_JurorID,CT_DOB,CT_Lastname
 
 [ExecuteCallInWindow] 
 type=log
+!type=JavaScript
+!Command="Execute"
+!DataDefinition="jsInEveningCallInWindow"
+!OnJsError=LogJsErrorCallinWindow
 
 [LogCallinWindow]
 type=log
@@ -1181,7 +1200,7 @@ var=CT_JurorID,CT_ScheduledDate,inCallinWindow
 type=changeVariable
 inCallinWindow=0
 inReportingWeek=0
-isAfterFTACutoffTime=0
+isPastReportingDateFtaCutoff=0
 Next=VerifyName
 
 !--------------------------------------------------
@@ -1560,12 +1579,12 @@ Next=ACDAvailable
 type=branch
 var=inCallinWindow
 1=PlayRequiredToReport
-0=CheckIsTodayReportingDate
+0=CheckisReportingDateToday
 
 ! If NOT in callin Window, check if Today is ReportingDate but they are calling in late
-[CheckIsTodayReportingDate]
+[CheckisReportingDateToday]
 type=Branch
-var=isTodayReportingDate
+var=isReportingDateToday
 "true"=CheckIfPastFTACutoff
 "false"=CallbackTonightAfter5
 0=CallbackTonightAfter5
@@ -1576,7 +1595,7 @@ Next=GenericReportingInfo
 ! Today is their reporting date. They are calling before FTA Cutoff Time, 11AM
 [CheckIfPastFTACutoff]
 type=branch
-var=isAfterFTACutoffTime
+var=isPastReportingDateFtaCutoff
 1=PlayFTAMessage
 0=PlayReportAnyway
 
@@ -1618,6 +1637,7 @@ var=inReportingWeek
 [CheckCallinWindowOnCall]
 type=branch
 var=inCallinWindow
+!0=GenericReportingInfo
 0=CallbackTonightAfter5
 1=OnCallIsServiceEnded
 
@@ -1988,6 +2008,11 @@ var=CT_JurorID,CT_DOB
 
 [U_ExecuteUpdateBioInfo]
 type=log
+!type=JavaScript
+!Command="Execute"
+!DataDefinition="CJ_ProcessBioInformation"
+!OnJsError=U_LogJsErrorBInfo
+!Next=U_CheckBioInfoResult
 Next=LogBioInfoOutput
 
 [U_LogJsErrorBInfo]
@@ -2268,7 +2293,10 @@ type=log
 
 [U_ExecuteProcessQualification]
 type=log
-Next=LogQualOutput
+!type=JavaScript
+!Command="Execute"
+!DataDefinition="CJ_ProcessQualification"
+!OnJsError=LogJsErrorPQNext=LogQualOutput
 
 [LogJsErrorPQ]
 type=log
@@ -2705,6 +2733,13 @@ var=CT_JurorID,CT_DOB,CT_Lastname
 
 [ExecutePostponementConfirmation]
 type=log
+!type=javascript
+!Command="Execute"
+!DataDefinition="CJ_GetPostponementConf"
+!OnJSError=LogJsErrorPPConf
+!TestMode=SaveTestData
+!TestMode=UseTestData
+!Next=CheckPostponementConfResult
 Next=ExtraLog6
 
 [LogJsErrorPPConf]
@@ -2931,6 +2966,10 @@ type=log
 
 [ExecuteProcessExcusal]
 type=log
+!type=JavaScript
+!Command="Execute"
+!DataDefinition="CJ_ProcessExcuseExempt"
+!OnJsError=LogJsErrorExcusal
 
 [LogExcusalOutput]
 type=log
@@ -3550,12 +3589,12 @@ type=log
 
 [LogInReportingWeek2]
 type=log
-var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
+var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isReportingDateToday
 Next=SendTestSuccess
 
 [LogJsErrorInReportingWeek2]
 type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
+var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isReportingDateToday
 Next=Exit
 
 [SendTestSuccess]

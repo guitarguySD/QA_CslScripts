@@ -148,20 +148,24 @@ InReportingWeek=0
 InReportingWeekCode=""
 InOnCallCallinWindow=""
 isReportingDateToday=0
+isPastReportingDateFtaCutoff=0
 PostponeDate1=""
 PostponeDate2=""
 PostponeDate3=""
 JurorId=""
 JurorDOB=""
 ScheduledDate=""
-
+REPORTING_WEEK_CUTOFF_HOUR = 18; 
+ONCALL_START_HOUR = 18; 
+ONCALL_END_HOUR = 10;  
+FTA_CUTOFF_HOUR = 11; 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get ScheduledDate Variable
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 [GetScheduledDate]
 type=VariableManager
-VarList="ScheduledDate"
+VarList="ScheduledDate,Fta_Cutoff_Hour,Reporting_Week_Cutoff_Hour,OnCall_Start_Hour,OnCall_End_Hour"
 OnError=VmError
 Next=LogScheduledDate
 
@@ -371,9 +375,11 @@ RequestScript="""
 """
 ResponseScript="""
 using System.Text.Json;
-const int REPORTING_WEEK_CUTOFF_HOUR = 18; // 6 PM
-const int ONCALL_START_HOUR = 18; // 6 PM
-const int ONCALL_END_HOUR = 10;   // 10 AM
+var REPORTING_WEEK_CUTOFF_HOUR = vars["Reporting_Week_Cutoff_Hour"] != "" ? int.Parse(vars["Reporting_Week_Cutoff_Hour"]) : 18; // Default to 6 PM if not set
+var ONCALL_START_HOUR = vars["OnCall_Start_Hour"] != "" ? int.Parse(vars["OnCall_Start_Hour"]) : 18; // Default to 6 PM if not set
+var ONCALL_END_HOUR = vars["OnCall_End_Hour"] != "" ? int.Parse(vars["OnCall_End_Hour"]) : 10; // Default to 10 AM if not set
+var FTA_CUTOFF_HOUR = vars["Fta_Cutoff_Hour"] != "" ? int.Parse(vars["Fta_Cutoff_Hour"]) : 11; // Default to 11 AM if not set
+
 var root = JsonDocument.Parse(response).RootElement;
 var scheduledDate = "";
 var testDate=vars["ScheduledDate"];
@@ -399,7 +405,7 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     // Combine JurorState and ReportingStatus 
     vars["CT_JurorState"] = vars["CT_JurorState"] == "Qualified" ? $"{vars["CT_JurorState"]}{vars["CT_ReportingStatus"]}" : vars["CT_JurorState"];
 
-    string scheduledDate =
+    scheduledDate =
         juror.TryGetProperty("reportingDate", out v) &&
         v.GetString()?.Length == 8 &&
         DateTime.TryParseExact(
@@ -441,11 +447,10 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     int inReportingWeekResult = 0;
 
     DateTime scheduledDt;
+    DateTime now = DateTime.Now;
     if (DateTime.TryParse(scheduledDate, out scheduledDt))
     {
         int dayOfWeek = (int)scheduledDt.DayOfWeek;
-        DateTime now = DateTime.Now;
-
         DateTime startOfWeek = scheduledDt.Date
             .AddDays(-dayOfWeek - 3)
             .AddHours(REPORTING_WEEK_CUTOFF_HOUR);
@@ -464,8 +469,11 @@ if (root.TryGetProperty("jurorInformation", out var juror))
     // Determine if currently in on-call call-in window (6 PM - 10 AM)
     bool isInOvernightWindow = now.Hour >= ONCALL_START_HOUR || now.Hour < ONCALL_END_HOUR;
     vars["InOnCallCallinWindow"] = isInOvernightWindow ? "1" : "0";
-    bool isReportingDateToday = DateTime.TryParse(scheduledDate, out DateTime schDt) && schDt.Date == DateTime.Now.Date;
+    bool isReportingDateToday = DateTime.TryParse(scheduledDate, out DateTime schDt2) && schDt2.Date == now.Date;
     vars["isReportingDateToday"] = isReportingDateToday ? "1" : "0";
+    DateTime ftaCutoffToday = now.Date.AddHours(FTA_CUTOFF_HOUR);
+    bool isPastReportingDateFtaCutoff = isReportingDateToday && now >= ftaCutoffToday;
+    vars["isPastReportingDateFtaCutoff"] = isPastReportingDateFtaCutoff ? "1" : "0";
 }
 """
 StatusCodeVar=ApiStatusCode
@@ -486,13 +494,9 @@ Var=rawJsonResponse
 type=Log
 Var=CT_JurorState,CT_JurorID,CT_DOB,CT_FirstName,CT_FirstInitial,CT_LastName,CT_Middle,CT_NameSuffix,CT_ReportingStatus,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_LocationName,CT_Street1,CT_Street2,CT_City,CT_State,CT_Zipcode,CT_ServiceStartDate,CT_ServiceEndDate,CT_ReportingAtAfter,CT_BioComplete,CT_PendingReview,CT_PoolID,CT_LastPaymentAmount,CT_LastPaymentDate,CT_LastMileage
 
-[LogDateParsing]
+[LogDateTimeCalculations]
 type=Log
-Var=CT_ScheduledDate
-
-[LogReportingWeekCalculation]
-type=Log
-Var=CT_ScheduledDate,InReportingWeekCode,InOnCallCallinWindow,isReportingDateToday
+Var=CT_ScheduledDate,InReportingWeekCode,InOnCallCallinWindow,isReportingDateToday,isPastReportingDateFtaCutoff
 
 [CheckReportingWeek]
 type=Branch
