@@ -304,6 +304,7 @@ GetJurorInfoEndpoint="/jurorinfo"
 PostponementInfoEndpoint="/postponementinfo"
 PostponementConfirmationEndpoint="/postponementconfirmation"
 ProcessQualificationEndpoint="/processqualification"
+CheckExcuseExemptEndpoint="/checkexcuseexemptdisqualify"
 ProcessExcuseExemptEnpoint="/processexcuseexempt"
 ProcessBioformEndpoint="/processbioform"
 jurorInformation=""
@@ -350,6 +351,7 @@ GetJurorInfoEndpoint=NeumoBaseUrl%GetJurorInfoEndpoint
 PostponementInfoEndpoint=NeumoBaseUrl%PostponementInfoEndpoint
 PostponementConfirmationEndpoint=NeumoBaseUrl%PostponementConfirmationEndpoint
 ProcessQualificationEndpoint=NeumoBaseUrl%ProcessQualificationEndpoint
+CheckExcuseExemptEndpoint=NeumoBaseUrl%CheckExcuseExemptEndpoint
 ProcessExcuseExemptEnpoint=NeumoBaseUrl%ProcessExcuseExemptEnpoint
 ProcessBioformEndpoint=NeumoBaseUrl%ProcessBioformEndpoint
 
@@ -1038,14 +1040,12 @@ CT_EligibleToExcuse=0
 AllowDeferrals = 0
 AllowDisqualifications = 0
 AllowExcusals=0
-Next=CheckInReportingWeek
+Next=VerifyName
 
 [GetPostponementEligibility]
 type=RestApi
 Method=POST
-!Url="https://fjd-sandbox.avenujury.com/base/rest/ivr/postponementinfo"
 url=PostponementInfoEndpoint
-!ContentType="application/json"
 RequestScript="""
     using System.Text.Json;
     var requestBody = new {
@@ -1071,9 +1071,39 @@ ResponseScript="""
         
         if (jurorInformation.TryGetProperty("calculatedPostponeDates", out var postponementDates))
         {
-            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
-            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
-            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+            // Convert date from MMddyyyy format to ISO8601 format
+            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 && 
+                postponementDates[0].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[0].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt1)
+                ? dt1.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
+                
+            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 && 
+                postponementDates[1].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[1].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt2)
+                ? dt2.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
+                
+            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 && 
+                postponementDates[2].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[2].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt3)
+                ? dt3.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
         }
     }
 """
@@ -1092,7 +1122,7 @@ Next=LogApiError ! Error path
 [CheckPostponeResult]
 type=branch
 var=CT_ResultCode
-OK=LogPPResultCode
+"OK"=LogPPResultCode
 Next=SetPostponementIneligible 
 
 [LogPPResultCode]
@@ -1132,29 +1162,93 @@ type=log
 type=changeVariable
 CT_RequestType="Excuse"
 
-[GetExcuseEligibilityAJ]
-type=log
-!type=JavaScript
-!Command="Execute"
-!DataDefinition="CJ_CheckExcuseExemptDisqualify"
-!OnNoData=SetExcusalIneligible
-!OnJsError=LogJsErrorExcuseInfo
-Next=LogExcuseInfoResult
+!========================================
+! Check Excuse/Exempt/Disqualify Eligibility
+!========================================
 
-[LogJsErrorExcuseInfo]
-type=log
-var=@Result,@ResultMessage
+[CheckExcuseExemptDisqualify]
+type=RestApi
+Method=POST
+Url=CheckExcuseExemptEnpoint
+AuthType=Basic
+AuthUsername={NeumoUserId}
+AuthPassword={NeumoPassword}
+Headers="accept": "application/json"
+ContentType=application/json
+TimeoutSeconds=30
+RequestScript="""
+    using System.Text.Json;
+    var request = new
+    {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"],
+        requestType = vars["CT_requestType"]
+    };
+    return JsonSerializer.Serialize(request);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
+    vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+    
+    if (root.TryGetProperty("jurorInformation", out var info))
+    {
+        vars["CT_EligibleToExcuse"] = info.GetProperty("eligibleInd").GetBoolean().ToString();
+        var inEligibleReason= info.GetProperty("inEligibleReason").GetString() ?? "";
+        if (string.IsNullOrEmpty(ineligibleReason))
+        {
+            vars["CT_IneligibleReason"] = "";
+        }
+        else if (ineligibleReason.Equals("IVR_MSG_001", StringComparison.OrdinalIgnoreCase))
+        {
+            vars["CT_IneligibleReason"] = "It's too close to or past your service date.";
+        }
+        else
+        {
+            vars["CT_IneligibleReason"] = ineligibleReason;
+        }
+        vars["CT_LocationCode"] = info.GetProperty("courtLocationCode").GetString() ?? "";
+        vars["CT_LocationName"] = info.GetProperty("courtLocationName").GetString() ?? "";
+        vars["CT_requestType"] = info.GetProperty("requestType").GetString() ?? "";
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogCheckExcuseExemptApiError
+Next=LogExcuseCheckResult
+
+[LogExcuseCheckResult]
+type=Log
+LogMsg=ExcuseExemptCheckComplete
+Var=ApiStatusCode,ApiSuccess,CCJ_Status,CT_EligibleToExcuse,CT_IneligibleReason,CT_LocationCode,CT_LocationName
+Next=CheckExcuseExemptAPIResult
+
+[CheckExcuseExemptAPIResult]
+type=Branch
+var=ApiSuccess
+true=CheckExcuseExemptResult
+Next=logCheckExcuseExemptApiError
+
+! On failure, just log and set excuse ineligible
+[LogCheckExcuseExemptApiError]
+type=Log
+var=ApiSuccess,ApiError,ApiStatusCode,CT_ResultCode,CT_ResultMessage
 Next=SetExcusalIneligible
 
-[LogExcuseInfoResult]
-type=log
-var=CT_JurorID,CT_ReturnedJurorID,CT_EligibleToExcuse,CT_RequestType,CT_ResultCode,CT_ResultMessage
+[CheckExcuseExemptResult]
+type=branch
+var=CT_ResultCode
+OK=LogPPResultCode
+Next=SetExcusalIneligible 
 
 [CheckExcuseInfoResult]
 type=branch
 var=CT_ResultCode
-0=CheckInReportingWeek		! Continue
-Next=SetExcusalIneligible 	! If not 0, ineligible
+"OK"=VerifyName		! Continue
+Next=SetExcusalIneligible 	! If not OK, ineligible
 
 
 !----------------------------
@@ -1162,97 +1256,6 @@ Next=SetExcusalIneligible 	! If not 0, ineligible
 [SetExcusalIneligible]
 type=changeVariable
 CT_EligibleToExcuse=0
-
-[LogExcusalIneligible]
-type=log
-Next=CheckInReportingWeek
-
-!--------------------------------------------------
-! Check in Reporting Week
-! True from Sunday at 5PM through Friday at 5PM
-!--------------------------------------------------
-[CheckInReportingWeek]
-type=log
-
-[CheckScheduledDateValid]
-type=branch
-var=CT_ScheduledDate
-""=SkipCallinWindow
-
-! Returns inReportingWeek and isTodayReportingDate
-[ExecuteCalulateInReportingWeek]
-type=log
-var=CT_JurorID,CT_ScheduledDate,InReportingWeek, isTodayReportingDate
-!type=Javascript
-!Command="Execute"
-!DataDefinition="jsInReportingWeek"
-!OnJsError=LogJsErrorInReportingWeek
-
-Next=CheckIfAfterFTACutoffTime
-
-[LogJsErrorInReportingWeek]
-type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
-Next=SkipCallinWindow
-
-!--------------------------------------------------
-! Check if after FTA Cutoff time
-!--------------------------------------------------
-[CheckIfAfterFTACutoffTime]
-type=log
-var=FTACutoffTime
-
-[ExecuteFTACutoff] 
-type=log
-
-[LogFTACutoff]
-type=log
-var=isPastReportingDateFtaCutoff
-Next=CheckCallinWindow
-
-[LogJsErrorFTACutoff]
-type=log
-var=CT_ResultCode,CT_ResultMessage
-Next=SkipCallinWindow
-
-!--------------------------------------------------
-! Check Callin Window
-! CallinWindow is true from 5PM before their scheduled reporting date to 11AM on their reporting date
-!--------------------------------------------------
-[CheckCallinWindow]
-type=log
-var=CT_ScheduledDate
-
-[CheckScheduledDate] ! If the scheduled date is blank, skip checking the callin window
-type=branch
-var=CT_ScheduledDate
-""=SkipCallinWindow
-
-[ExtraLog3]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
-
-[ExecuteCallInWindow] 
-type=log
-!type=JavaScript
-!Command="Execute"
-!DataDefinition="jsInEveningCallInWindow"
-!OnJsError=LogJsErrorCallinWindow
-
-[LogCallinWindow]
-type=log
-var=CT_JurorID, CT_ScheduledDate, inCallinWindow
-Next=VerifyName
-
-[LogJsErrorCallinWindow]
-type=log
-var=CT_JurorID,CT_ScheduledDate,inCallinWindow
-
-[SkipCallinWindow]
-type=changeVariable
-inCallinWindow=0
-inReportingWeek=0
-isPastReportingDateFtaCutoff=0
 Next=VerifyName
 
 !--------------------------------------------------
@@ -2059,27 +2062,67 @@ type=log
 var=CT_JurorID,CT_DOB
 
 [U_ExecuteUpdateBioInfo]
-type=log
-!type=JavaScript
-!Command="Execute"
-!DataDefinition="CJ_ProcessBioInformation"
-!OnJsError=U_LogJsErrorBInfo
-!Next=U_CheckBioInfoResult
-Next=LogBioInfoOutput
+type=RestApi
+Method=POST
+Url=ProcessBioformEndpoint
+Method=POST
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        personId = vars["CT_JurorID"],
+        answers = new[] {
+            new { questionId = "BioForm_IVR_1", value = vars["CT_BioForm_IVR_1"] },
+            new { questionId = "BioForm_IVR_2", value = vars["CT_BioForm_IVR_2"] },
+            new { questionId = "BioForm_IVR_3", value = vars["CT_BioForm_IVR_3"] },
+            new { questionId = "BioForm_IVR_4", value = vars["CT_BioForm_IVR_4"] },
+            new { questionId = "BioForm_IVR_5", value = vars["CT_BioForm_IVR_5"] },
+            new { questionId = "BioForm_IVR_6", value = vars["CT_BioForm_IVR_6"] },
+            new { questionId = "BioForm_IVR_7", value = vars["CT_BioForm_IVR_7"] },
+            new { questionId = "BioForm_IVR_8", value = vars["CT_BioForm_IVR_8"] },
+            new { questionId = "BioForm_IVR_9", value = vars["CT_BioForm_IVR_9"] },
+            new { questionId = "BioForm_IVR_10", value = vars["CT_BioForm_IVR_10"] },
+            new { questionId = "BioForm_IVR_11", value = vars["CT_BioForm_IVR_11"] },
+            new { questionId = "BioForm_IVR_12", value = vars["CT_BioForm_IVR_12"] },
+            new { questionId = "BioForm_IVR_13", value = vars["CT_BioForm_IVR_13"] }
+        }
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    
+    // Root level
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["CT_BioComplete"] = jurorInformation.TryGetProperty("bioformCompletionStatus", out var bioformCompletionStatus) ? bioformCompletionStatus.GetString() ?? "" : "";
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogProcessBioFormError
+Next=CheckAPIResult_ProcessBioForm
 
-[U_LogJsErrorBInfo]
+[CheckAPIResult_ProcessBioForm]
+type=Branch
+var=ApiSuccess
+
+[LogProcessBioFormError]
 type=log
-var=@Result,@ResultMessage
+var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
 Next=StatE_SystemError
-
-[LogBioInfoOutput]
-type=log
-var=CT_JurorID,CT_DOB
 
 [U_CheckBioInfoResult]
 type=branch
 var=CT_ResultCode
-0=U_CheckBioFormCompletionStatus
+"OK"=U_CheckBioFormCompletionStatus
 Next=StatE_SystemError
 
 [U_CheckBioFormCompletionStatus]
@@ -2344,25 +2387,66 @@ type=log
 !var=JurorID,DisqReason1,DisqReason2,DisqReason3,DisqReason4,DisqReason5,DisqReason6GJ,DisqReason6,DisqReason7,DisqReason8
 
 [U_ExecuteProcessQualification]
-type=log
-!type=JavaScript
-!Command="Execute"
-!DataDefinition="CJ_ProcessQualification"
-!OnJsError=LogJsErrorPQNext=LogQualOutput
+type=RestApi
+Method=POST
+Url=ProcessQualificationEndpoint
+Method=POST
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        personId = vars["CT_JurorID"],
+        answers = new[] {
+            new { questionId = "Qualification_IVR_1", value = vars["Q1Answer"] },
+            new { questionId = "Qualification_IVR_2", value = vars["Q2Answer"] },
+            new { questionId = "Qualification_IVR_3", value = vars["Q3Answer"] },
+            new { questionId = "Qualification_IVR_4", value = vars["Q4Answer"] },
+            new { questionId = "Qualification_IVR_5", value = vars["Q5Answer"] },
+            new { questionId = "Qualification_IVR_6", value = vars["Q6Answer"] },
+            new { questionId = "Qualification_IVR_7", value = vars["Q7Answer"] },
+            new { questionId = "Qualification_IVR_8", value = vars["Q8Answer"] }
+        }
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    
+    // Root level
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["CT_QualificationStatus"] = jurorInformation.TryGetProperty("qualificationStatus", out var qualificationStatus) ? qualificationStatus.GetString() ?? "" : "";
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogProcessBioFormError
+Next=CheckAPIResult_ProcessQualification
 
-[LogJsErrorPQ]
+[CheckAPIResult_ProcessQualification]
+type=Branch
+var=ApiSuccess
+true=CheckPQResult
+false=LogProcessQualificationAPIError
+
+[LogProcessQualificationAPIError]
 type=log
-var=@Result,@ResultMessage
+var=CT_JurorID,ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
 Next=StatE_SystemError
 
-[LogQualOutput]
-type=log
-var=CT_JurorID,CT_DOB
 
-[CheckExecPQResult]
+[CheckPQResult]
 type=branch
 var=CT_ResultCode
-0=U_CheckQualificationStatus
+OK=U_CheckQualificationStatus
+Next=LogPQProblem
 
 [LogPQProblem]
 type=log
@@ -2778,31 +2862,41 @@ Next=ACDAvailable
 type=log
 var=CT_JurorID,CT_SelectedDate
 
-
-[ExtraLog5]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
-
 [ExecutePostponementConfirmation]
-type=log
-!type=javascript
-!Command="Execute"
-!DataDefinition="CJ_GetPostponementConf"
-!OnJSError=LogJsErrorPPConf
-!TestMode=SaveTestData
-!TestMode=UseTestData
-!Next=CheckPostponementConfResult
-Next=ExtraLog6
+type=RestApi
+Method=POST
+Url=PostponementConfirmationEndpoint
+RequestScript="""
+    using System.Text.Json;
+    
+    // Convert CT_SelectedDate from ISO8601 format to MMddyyyy format
+    string selectedDateFormatted = "";
+    if (!string.IsNullOrEmpty(vars["CT_SelectedDate"]) &&
+        DateTime.TryParse(vars["CT_SelectedDate"], out DateTime parsedDate))
+    {
+        selectedDateFormatted = parsedDate.ToString("MMddyyyy");
+    }
+    
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"],
+        selectedDate = selectedDateFormatted
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
+    vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogPingStatus
+Next=LogPingStatus
 
-[LogJsErrorPPConf]
-type=Log
-LogMsg="JSError in Postponement Confirmation"
-Next=StatE_SystemError
-
-
-[ExtraLog6]
-type=log
-var=CT_JurorID,CT_DOB,CT_Lastname
 
 [CheckPostponementConfResult]
 type=branch
@@ -3017,36 +3111,64 @@ type=log
 !var=CT_JurorID,CT_DOB,CT_TypeCode,CT_ReasonCode
 
 [ExecuteProcessExcusal]
-type=log
-!type=JavaScript
-!Command="Execute"
-!DataDefinition="CJ_ProcessExcuseExempt"
-!OnJsError=LogJsErrorExcusal
+type=RestApi
+Method=POST
+url=ProcessExcuseExemptEnpoint
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"],
+        reasonCode = vars["CT_ReasonCode"],
+        requestType = vars["CT_ReasonType"]
+    };
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    
+    // Root level
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["CT_EligibleToExcuse"] = jurorInformation.TryGetProperty("eligibleInd", out var eligibleToExcuse) ? eligibleToExcuse.GetBoolean().ToString() : "false";
+        vars["CT_ExcuseExemptRequestStatus"] = jurorInformation.TryGetProperty("excuseExemptRequestStatus", out var excuseExemptRequestStatus) ? excuseExemptRequestStatus.GetString() ?? "" : "";
+        vars["CT_IneligibleReason"] = jurorInformation.TryGetProperty("inEligibleReason", out var ineligibleReason) ? ineligibleReason.GetString() ?? "" : "";
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogProcessExcusalError
+Next=CheckAPIResult_ProcessExcusal
 
-[LogExcusalOutput]
+[LogProcessExcusalError]
 type=log
-var=CT_JurorID,CT_DOB
+var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess
+Next=StatE_Sorry
 
-[LogProcessExcusalOutput]
-type=log
-var=CT_JurorID,CT_EligibleToExcuse,CT_IneligibleReason,CT_ExcuseExemptRequestStatus,CT_ResultCode,CT_ResultMessage
-Next=CheckExcusalResult
-
-[LogJsErrorExcusal]	! Exit on Javascript error
-type=log
-var=@Result,@ResultMessage
-Next=StatE_SystemError
-
-[CheckExcusalResult]	! Check process errors
+! First check status of API call
+[CheckAPIResult_ProcessExcusal]
 type=branch
-var=CT_ResultCode
-0=CheckExcusalRequestStatus
-Next=LogExcusalResult
+var=ApiSuccess
+true=CheckProcessExcusalRetrieveResult
+Next=LogApiError_ProcessExcusal
 
-[LogExcusalResult]
+[LogApiError_ProcessExcusal]
 type=log
-var=CT_ResultCode,CT_ResultMessage
-Next=StatE_SystemError
+var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess
+Next=StatE_Sorry
+
+[CheckProcessExcusalRetrieveResult]
+type=Branch
+Var=CT_ResultCode
+"OK"=CheckExcusalRequestStatus
+Next=SetScreenMsgForExcusalProblem
 
 [CheckExcusalRequestStatus]	! Check Request Status
 type=branch
@@ -3511,327 +3633,17 @@ TimeoutSec=6
 OnMaxTimeouts=HangupCall
 OnKeyPound=HangupCall
 OnKeyStar=HangupCall
+Next=CompareAdminPassword
 
 [CompareAdminPassword]
 type=branch
 var=EnteredRecordPassword
 RecordPassword=StatE_RecordPhrase
-"2222"=TestCallInWindow
-"3333"=TestServing
-"4444"=TestDisqualified
-"5555"=TestPostponed
-"6666"=TestServiceEnded
-"7777"=TestExcused
-"8888"=TestReportingWeek
-"9999"=TestRequiredToReport
 Next=Goodbye
-
-!--------------------------------------
-! Test Required To Report
-[TestRequiredToReport]
-type=log
-
-[SetVarsForTest]
-type=changevariable
-inReportingWeek=1
-isTodayReportingDate=TRUE
-inCallinWindow=0
-CT_JurorState="QualifiedReport"
-Next=RequiredToReportInfo
-
-
-!--------------------------------------
-! Test Callin Window
-[TestServing]
-type=changeVariable
-CT_JurorState="Panel"
-Next=Serving
-
-!--------------------------------------
-! Test Callin Window
-[TestDisqualified]
-type=changeVariable
-CT_JurorState="Disqualified"
-Next=Disqualified
-
-!--------------------------------------
-! Test Callin Window
-[TestPostponed]
-type=changeVariable
-CT_JurorState="Postponed"
-Next=Postponed
-
-!--------------------------------------
-! Test Callin Window
-[TestServiceEnded]
-type=changeVariable
-CT_JurorState="Completed"
-Next=ServiceEnded
-
-!--------------------------------------
-! Test Callin Window
-[TestExcused]
-type=changeVariable
-CT_JurorState="Excused"
-Next=Excused
-
-!--------------------------------------
-! Test Callin Window
-[TestCallInWindow]
-type=log
-
-[ExecuteCallInWindowTEST] 
-type=log
-
-[LogCallinWindowTEST1]
-type=log
-var=CT_JurorID, CT_ScheduledDate, inCallinWindow
-Next=EndTest
-
-[LogJsErrorCallinWindowTEST]
-type=log
-
-[EndTest]
-type=log
-next=Exit
-
-!-----------------------------------
-! Check Exempt Excuse Disqualify
-!-----------------------------------
-[TestCheckExcuseExemptDisqualify]
-type=changeVariable
-CT_JurorID = "100139810"
-CT_RequestType ="Excuse"
-
-[LogTestInput]
-type=log
-var=CT_JurorID,CT_EligibleToExcuse
-
-
-[CheckExcuseExemptDisqualify]
-type=log
-
-
-[LogTestResults]
-type=log
-var=CT_JurorID,CT_returnedJurorId,CT_requestType,CT_EligibleToExcuse,CT_ResultCode,CT_ResultMessage
-Next=Exit
-
-[LogNoData]
-Type=log
-Next=Exit
-
-[LogJsErrorCheckEED]
-type=log
-!var=var=CT_ResultCode,CT_ResultMessage,CT_JurorID,CT_returnedJurorId,CT_requestType,CT_requestEligibility
-Next=Exit
-
-!-----------------------------------
-! Reporting Week Test
-!-----------------------------------
-[TestReportingWeek]
-type=log
-
-[SetReportingWeekTest]
-type=changeVariable
-CT_ScheduledDate="11/16/2023"
-
-[ExecuteInReportingWeekTest]
-type=log
-
-[LogInReportingWeek2]
-type=log
-var=CT_JurorID, CT_ScheduledDate, inReportingWeek, isTodayReportingDate
-Next=SendTestSuccess
-
-[LogJsErrorInReportingWeek2]
-type=log
-var=CT_JurorID,CT_ScheduledDate,inReportingWeek, isTodayReportingDate
-Next=Exit
-
-[SendTestSuccess]
-type=pause
-pausesec=1
-
-[SendTestSuccess1]
-type=dial
-dialstring="1111"
-Next=Exit
-
-!--------------------------------------------
-! Test mode
-!---------------------------------------------
-[StatE_TestMode]
-type=log
-logmsg="Admin: TestMode"
-
-[SetCallForTest]
-Type=ChangeVariable
-JuryTestMode=1
-
-[PlayTestMode]
-Type=Play
-Msg="TestMode"
-Next=JurorMenu
-
-!--------------------------------------------------
-! Page 44
-!--------------------------------------------------
 
 [StatE_RecordPhrase]
 type=log
-logmsg="Admin Record"
-Next=SetOptionalGreeting
-
-[RecordMainMenu]
-type=menu
-msg="RecordMainMenu"
-OnKey1=SetDailyReportingInstructions
-OnKey2=SetOptionalGreeting
-OnKey3=SetPhraseToRecord
-OnKey9=Exit
-OnKeyPound=RecordMainMenu
-OnKeyStar=RecordMainMenu
-
-[SetDailyReportingInstructions]
-type=changeVariable
-PhraseToRecord="DailyReportingInstructions"
-Next=RecordMenu
-
-[SetOptionalGreeting]
-type=changeVariable
-PhraseToRecord="OptionalGreeting"
-Next=RecordMenu
-
-[SetPhraseToRecord]
-type=VariableManager
-VarList="PhraseToRecord"
-OnError=LogPhraseToRecordVMFailure
-Next=RecordMenu
-
-[LogPhraseToRecordVMFailure]
-type=log
-logmsg="Error getting Phrase To Record from Variable Manager"
-
-[PlayVMErrorMessage]
-type=play
-msg="SystemProblem"
-Next=RecordMainMenu
-
-!--------------------------------------------------
-! Page 45
-!--------------------------------------------------
-
-[RecordMenu]
-type=log
-logmsg="RecordPath = "%RecordPath%", PhraseToRecord = "%PhraseToRecord
-
-[PlayRecordingOptGreeting]
-type=play
-msg="RecordingOptGreeting"
-
-[RecordMenuBlock]
-type=menu
-msg="RecordMenu"
-OnKey1=RecordMessage
-OnKey2=PlayRecordedMessage
-OnKey3=RecordMainMenu
-OnKey4=Exit
-OnKey5=Exit
-OnKey9=Exit
-OnKeyPound=RecordMenu
-OnKeyStar=RecordMenu
-
-[RecordMessage]
-type=Record
-msg="RecordPrompt"
-FlushKeys=1
-PlayBeep=1
-MaxRecordingSec=600
-WaitForMsg=1
-FileName=RecordPath%PhraseToRecord
-Next=RecordMenu
-
-[PlayRecordedMessage]
-type=play
-msg=PhraseToRecord
-Next=RecordMenu
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!! Quick Record  !!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[QuickRecordFile]
-type=Record
-msg="QuickRecordPrompt"
-!Terminator="#"
-FlushKeys=True
-PlayBeep=True
-!TimeoutSec=300
-MaxRecordingSec=600
-!VoxTimeoutSec=5
-WaitForMsg=True
-FileName="RecordedPhrase"
-Next=PlayRecordedFile
-
-[PlayRecordedFile]
-type=play
-msg="RecordedPhrase"
-next=Exit
-
-!======================================
-! Self test - simple record retrieval
-! 
-[SelfTest]
-type=log
-
-[SetTestCaseVariables]
-type=changeVariable
-CT_JurorID="104277520"
-CT_DOB="10231966"
-
-[GetJurorInfoTEST]
-type=log
-Next=LogSelfTest
-
-[LogSelfTest]
-type=log
-var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_ResultCode,CT_ResultMessage
-
-[SendSuccess]
-type=pause
-pausesec=1
-
-[SendSuccess1]
-type=dial
-dialstring="1111"
-Next=HangupCall
-
-!-------------------------
-! Record Not found failure
-[RecordNotFoundFailure]
-type=pause
-pausesec=1
-
-[RecordNotFoundFailure2]
-type=dial
-dialstring="2222"
-logblock=true
-UseInbandDtmf=false
-Next=HangupCall
-
-!------------------------
-! Javascript failure
-[JavascriptFailure]
-type=pause
-pausesec=1
-
-[JavascriptFailure3]
-type=dial
-dialstring="3333"
-logblock=true
-UseInbandDtmf=false
-Next=HangupCall
+Next=Goodbye
 
 !===================================
 ! End Routines

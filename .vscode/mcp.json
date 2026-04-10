@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "csl": {
+      "command": "dotnet",
+      "args": [
+        "c:\\Users\\DeanGoddette\\.vscode\\extensions\\sonant.cvs-language-support-1.0.0\\server\\bin\\Sonant.Domain.Script.Compiler.McpServer.dll"
+      ],
+      "type": "stdio"
+    }
+  }
+}

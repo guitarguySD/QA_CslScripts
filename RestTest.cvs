@@ -155,10 +155,10 @@ PostponeDate3=""
 JurorId=""
 JurorDOB=""
 ScheduledDate=""
-REPORTING_WEEK_CUTOFF_HOUR = 18; 
-ONCALL_START_HOUR = 18; 
-ONCALL_END_HOUR = 10;  
-FTA_CUTOFF_HOUR = 11; 
+REPORTING_WEEK_CUTOFF_HOUR = 18
+ONCALL_START_HOUR = 18
+ONCALL_END_HOUR = 10
+FTA_CUTOFF_HOUR = 11
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get ScheduledDate Variable
@@ -417,7 +417,7 @@ if (root.TryGetProperty("jurorInformation", out var juror))
         ? schDt.ToString("yyyy-MM-ddTHH:mm:ss")
         : "";
     //For testing 
-    scheduledDate = testDate;
+    //scheduledDate = testDate;
     vars["CT_ScheduledDate"]     = scheduledDate;
 
     vars["CT_ScheduledTime"]     = juror.TryGetProperty("reportingTime",     out v) ? v.GetString() ?? "" : "";
@@ -527,8 +527,8 @@ ttsstring="Neumo Get Juror info test complete. NeumoAPI status was"
 msgstring=ApiStatus%"|C"
 ttsstring="The name associated with the juror ID is"
 msgstring=CT_LastName%"|C"
-
-
+ttsstring="and is scheduled to report on"
+msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
 
 [GetPostponementInfo]
 type=RestApi
