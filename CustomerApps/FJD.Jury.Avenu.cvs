@@ -194,7 +194,7 @@ CT_PoolID=""
 CT_PostponementStatus=""
 CT_QualificationStatus=""
 CT_ReasonCode=""
-CT_ReasonType=""
+CT_RequestType=""
 CT_ReasonDescription=""
 CT_ReportingAtAfter=""
 CT_ReportingStatus=""
@@ -279,7 +279,7 @@ DisqReason6GJ=""
 DisqReason6=""
 DisqReason7=""
 DisqReason8=""
-AnswerSum=0
+DisqualifyingAnswersCount=0
 
 CJ_JurorID="" ! This is returned from Clearview Jury. For error checking purposes.
 ! Check Excuse Exempt Disqualify
@@ -2192,7 +2192,7 @@ Next=U_ResidencyMenu
 type=changeVariable
 Q1Answer="0"
 DisqReason1="DisqualNonCitizen"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_ResidencyMenu
 
 !=================================================
@@ -2213,7 +2213,7 @@ Next=U_EnglishMenu
 type=changeVariable
 Q2Answer="0"
 DisqReason2="DisqualNonResident"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_EnglishMenu
 
 ! English
@@ -2235,7 +2235,7 @@ Next=U_AgeMenu
 type=changeVariable
 Q3Answer="0"
 DisqReason3="DisqualEnglish"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_AgeMenu
 
 ! 19 years or older
@@ -2257,7 +2257,7 @@ Next=U_JudgeMenu
 type=changeVariable
 Q4Answer=0
 DisqReason4="DisqualAge"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 DisqualPendingMessage="UAgeInfo"
 Next=U_JudgeMenu
 
@@ -2275,7 +2275,7 @@ OnKeyStar=U_JudgeMenu
 type=changeVariable
 Q5Answer="1"
 DisqReason5="DisqualJudge"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_SheriffMenu
 
 [U_SetNotJudge]
@@ -2297,7 +2297,7 @@ OnKeyStar=U_SheriffMenu
 type=changeVariable
 Q6Answer="1"
 DisqReason6="DisqualSheriff"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_CurrentCaseMenu
 
 [U_SetNotSheriff]
@@ -2319,7 +2319,7 @@ OnKeyStar=U_CurrentCaseMenu
 type=changeVariable
 Q7Answer="1"
 DisqReason7="DisqualParty"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 Next=U_FelonyMenu
 
 [U_SetNotCurrentCase]
@@ -2345,7 +2345,7 @@ Next=U_SubmitQualificationResponses
 type=changeVariable
 Q8Answer="1"
 DisqReason5="DisqualFelon"
-Increment=AnswerSum
+Increment=DisqualifyingAnswersCount
 DisqualPendingMessage="UFelonInfo"
 Next=U_SubmitQualificationResponses
 
@@ -2357,9 +2357,9 @@ type=log
 
 [CheckAnswerSum]
 type=Branch
-var=AnswerSum
+var=DisqualifyingAnswersCount
 !0=U_ExecuteProcessQualification
-0=DisqualificationConfirmation
+0=PenaltyOfPerjuryMenu
 OnAboveRange=PlayDisqualificationConfirmation
 
 [PlayDisqualificationConfirmation]
@@ -2374,12 +2374,12 @@ msg=DisqReason6
 msg=DisqReason7
 msg=DisqReason8
 
-[DisqualificationConfirmation]
+[PenaltyOfPerjuryMenu]
 type=menu
 Msg="PerjuryMenuDTMF"
 OnKey1=LogQualInput
 OnKey2=SendBackToInterview
-OnKeyStar=DisqualificationConfirmation
+OnKeyStar=PenaltyOfPerjuryMenu
 OnKeyPound=PlayDisqualificationConfirmation
 
 [LogQualInput]
@@ -2540,7 +2540,7 @@ Q5Answer=""
 Q6Answer=""
 Q7Answer=""
 Q8Answer=""
-AnswerSum=0
+DisqualifyingAnswersCount=0
 DisqReason1=""
 DisqReason2=""
 DisqReason3=""
@@ -2973,7 +2973,7 @@ logmsg="Excusal Request: Over 65"
 [SetCodeOver65]
 type=ChangeVariable
 CT_ReasonCode="O"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseAge"
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
@@ -2987,7 +2987,7 @@ logmsg="Excusal Request: Over 65 Permanent"
 [SetCodeOver65Permanent]
 type=ChangeVariable
 CT_ReasonCode="OP"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseAge"
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
@@ -3007,7 +3007,7 @@ logmsg="Excusal Request: Nursing Mother"
 [SetCodeNursingMother]
 type=ChangeVariable
 CT_ReasonCode="N"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseNursingMother"
 ExcusalInfoMsg2="NursingMotherInfo1"
 ExcusalInfoMsg3="NursingMotherInfo2"
@@ -3021,7 +3021,7 @@ logmsg="Excusal Request: Active Military"
 [SetCodeActiveMilitary]
 type=ChangeVariable
 CT_ReasonCode="M"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseActiveMilitary"
 ExcusalInfoMsg2="MilitaryInfo1"
 ExcusalInfoMsg3="MilitaryInfo2"
@@ -3035,7 +3035,7 @@ logmsg="Excusal Request: Already Served"
 [SetCodeAlreadyServed]
 type=ChangeVariable
 CT_ReasonCode="W5"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseServingJuror"
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
@@ -3049,7 +3049,7 @@ logmsg="Excusal Request: Felony"
 [SetCodeFelony]
 type=ChangeVariable
 CT_ReasonCode="F"
-CT_ReasonType="Excuse"
+CT_RequestType="Excuse"
 ExcusalInfoMsg="ExcuseFelony"
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
@@ -3093,7 +3093,7 @@ type=changeVariable
 ExcusalInfoMsg=""
 ExcusalInfoMsg2=""
 CT_ReasonCode=""
-CT_ReasonType=""
+CT_RequestType=""
 Next=RequestExcusalMenu
 
 [CancelExcusalMainMenu]
@@ -3102,7 +3102,7 @@ ExcusalInfoMsg=""
 ExcusalInfoMsg2=""
 ExcusalInfoMsg3=""
 CT_ReasonCode=""
-CT_ReasonType=""
+CT_RequestType=""
 Next=JurorMenu
 
 ! Process the Excusal request
@@ -3121,7 +3121,7 @@ RequestScript="""
         password = vars["NeumoPassword"],
         jurorID = vars["CT_JurorID"],
         reasonCode = vars["CT_ReasonCode"],
-        requestType = vars["CT_ReasonType"]
+        requestType = vars["CT_RequestType"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
