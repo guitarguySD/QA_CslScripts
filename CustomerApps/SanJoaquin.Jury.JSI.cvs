@@ -1,0 +1,4405 @@
+! San Joaquin Court Jury
+!  - based on Sacramento script same date
+!
+!   2011-01-26 dwg, updated for san joaquin, group number from database.
+!   Refer to the call flow. This version is specific to San Joaquin. 
+!   The Group Number is retrieved from the database - NO Interactive Group Number entry.
+!   Options 2 & 3 on main menu are never offered. 
+!
+! 03/08/11 - dwg - This version with Emergency message plus path to whole application
+! 03/22/11 - tb  - Changed TransferDialString to 82870
+! 09/29/11 - tb  - commented out SafetyDisconnectJSIPort block because when JSI has delays this disconnect is causing our transfers to fail
+! 04/01/2014 - RR - Changed Transfer Dial String to ##6650 for new voip phone system from 82870
+! 7/2/14	RR - changed transfer dial string to 5700
+! 12/5/14	RR - Fixed after hours issue with Assistance Available.
+! 03/29/24  EB - CCS to CVS script conversion; updated ACDAvailable block
+! 05/16/24  EB - Disallow disquals and excusals; rename PostponementDate to Jury_PostponementDate
+! 05/30/24  EB - Changed var HolidayToday to IsHoliday
+! 07/24/24	EB	-	Route to spanish agent
+! version 10 - postponement test
+! 07/26/24  DG - Group 0 reporting instructions fix
+! 08/01/24 RR - Added spanish route to spanish group
+! 08/02/24 EB - Jury_VMCallbackTime
+! 08/06/24 EB - CheckInstructionsAvailable
+! 08/07/24 DG - Added notes, small fix to Reporting Day check
+! 08/27/24 DG - Postponedate error handling change
+! 09/11/24 DG - Fixed isHoliday, HolidayToday callin window issue
+! 10/30/24 RR - Added JSINoOptions on Main menu when HostAvailable=0
+! 01/23/25 EB - isHoliday is used for DLL call in calculations
+[ScriptSetup]
+type=SetGlobals
+Language="English"
+MaxCallSec=9000
+MaxCallErrors=8
+OnMaxCallSec=HangupCall
+OnMaxCallErrors=HangupCall
+OnCallDisconnect=HangupCall
+OnScriptError=HangupCall
+AllowOnDisconnect=1
+LogTrace=1
+
+[DefineSetupVariable]
+Type=DefineVars
+ComeInAnywayFlag=0
+WindowTestMode=0
+TestTime=""
+TestTime2=""
+CourtParking=""
+CourtName=""
+CourtAddress=""
+CourtReportOn=""
+ReportingWeekState="Unknown"
+Jury_BooleanResult=0
+Jury_fn_i_Expression=""
+Jury_fn_i_VariableName=""
+Jury_PostponementDate1=""
+Jury_PostponementDate2=""
+Jury_PostponementDate3=""
+AllowDeferrals=1
+AllowDisqualifications=0
+AllowExcusals=0
+testVar="Sat Dec 30 18:00:00 1899"
+varCount=0
+copiedVar=""
+QAGroupNumber=""
+CallbackTime=""
+Jury_ResultCode=""
+Jury_StatusEnum="Unknown"
+Jury_GroupStatusEnum=""
+Jury_GroupReportingDate=""
+Jury_GroupReportingTime=""
+Jury_GroupReportingCallbackTime=""
+Jury_GroupReportingLocation=""
+Jury_IsGroupInstructionAvailable=""
+Jury_PhoneNumber=""
+Jury_IsFailedToAppear=""
+Jury_IsReportingWeek=""
+Jury_IsReportingDay=""
+Jury_IsCallInWindow=""
+Jury_IsPastFTACutOffTime=""
+Jury_IsPastReportingDay=""
+Jury_IsPastReportingWeek=""
+GBL_THROW_ERROR_ON_MISSING_VARIABLES=True
+Jury_ErrorMessage=""
+Jury_IsEligibleToExcusal=0
+Jury_IsEligibleToReschedule=1
+GBL_SCRIPT_PREFIX="Jury_"
+ACD_ActiveCalls=0
+ACD_AgentCall=1
+ACD_AgentData=""	               			
+ACD_AgentExtension=""	         		
+ACD_AgentName=""
+ACD_AgentsTakingCalls=0		         	
+ACD_AnswerTimeoutSec=30			
+ACD_CallAge=""	               		
+ACD_CallID=""		         
+ACD_CallPriority=0			
+ACD_CallState=0		         		
+ACD_ConnectedLineState=0	
+ACD_ConnectedPortState=0		
+ACD_ConnectToAddress=0		
+ACD_ConnectToName=0		
+ACD_ConnectType=0				
+ACD_DigitsAfterConnect=""
+ACD_EstimatedHoldTimeMin=0      !@@## only here to handle missing variable error at start up
+ACD_GroupName="JURY"		
+ACD_GroupState=0
+ACD_InboundDestination=""
+ACD_LoggedInAgents=0
+ACD_MusicOnHoldFile=""
+ACD_OverflowInCount=0
+ACD_PortState=0		         		
+ACD_PositionInQueue=0   
+ACD_ReadyAgents=0
+ACD_RecordAgentCall=0
+ACD_Result=0			
+ACD_RouteCode=0		         		
+ACD_RouteName="Jury"		         		
+ACD_ServerState=0
+ACD_Supervisors=""				
+ACD_TimeInQueue=0	               	
+ACD_TransferFromAgentName=""	
+ACD_WaitForAnswerMSec=90000
+ACD_WaitForPortMSec=30000
+ACDAvailable=0
+AgentTransfer=0
+ANI=""
+AnswerLength=0
+AssistanceAvailable=1
+AudioText1="Silence"
+AudioText2="Silence"
+AudioText3="Silence"
+AudioText4="Silence"
+AudioText5="Silence"
+AudioText6="Silence"
+AudioTextSegment=""
+AutoReschedule=0
+ByFaxOrEmail=0
+BusyOutSystem=0
+CallerLanguage="English"
+ChangedTime=0
+ClosingTime=""
+ConferenceConnectCode="&"
+ConferenceDisconnectCode="&"
+ConferenceStartCode="&,"
+ConfirmRetry=0
+CR_Dialed_Number=""
+CR_LineStatus=""
+CR_Result=0
+CR_WaitForAnswer=2400
+DateRetryCount=0
+DialCode=""
+EndOfCycleCount=0
+EnteredJurorID=0
+EnterJurorIDMsg="EnterJurorIDDTMF"
+EnteredPassword=0
+EnteredRecordPassword=0
+ErrorCounter=0
+ExcuseExemptType=""
+ExcuseType=""
+ExemptType=""
+Extension=""
+FromACD=0
+FullOptions=1
+FurloughToday=0
+GetReportingInstructions=0
+GroupReportingLocation=""
+GroupRetryCount=0
+GuardianEventID=0
+IsHoliday=0
+HolidayToday=0
+HoldResult=""
+HostAvailable=1
+Input_Pin=""
+JurorLoggedIn=0
+PhraseToRecord=""
+LineType="T1"
+LoopCounter=0
+McAllisterParkingFee=""
+MenuRetry=0
+Message=""
+!Mode="DTMF"
+Mon_Result=0
+Mon_EventID=0
+Mon_EventParameter=0
+Mon_Message1=""
+Mon_Message2=""
+Mon_Message3=""
+Mon_Message4=""
+Music1="MusicOnHold1"
+Music2="MusicOnHold2"
+Music3="MusicOnHold3"
+Music4="MusicOnHold4"
+Music5="MusicOnHold5"
+Music6="MusicOnHold6"
+MusicFirstTime=1
+MusicSegment=""
+NameRetry=0
+Notice=""
+NumberOfDigits=0
+OfficeOpen=1
+OnHoldSequence=0
+OpeningTime=""
+OperatorClosed=""
+OperatorOpen=""
+PlayInProgress=0
+Qfull=0
+QueueReturn=""                
+QueueStatVariable=0
+RecordPassword=""
+RecordPath=RecordFilePath
+RescheduleDateMax=0
+RetryCounter=0
+ReturnToQueue=0
+RouteRetry=0
+RWS_Variable1=""
+RWS_Variable2=""
+RWS_Variable3=""
+RWS_Variable4=""
+ScreenMsg="Caller Pressed 0"
+Today=""
+Tomorrow=""
+Jury_NextReportingDate=""
+Jury_EventType=""
+Jury_ActivityType=""
+Jury_ActivityReason=""
+Jury_NoticeStatus=""
+Jury_NoticeType=""
+Jury_AlternateReportingDate=""
+Jury_CheckReportingTime=0
+Jury_ContinuanceAllowed=0
+Jury_DateOfBirth=""
+Jury_DenialReason=""
+Jury_EligibilityVerified=0
+Jury_isEligibleForExcusal=0
+Jury_EligibleForDisqualification=0
+Jury_ExcuseRequestDenied=0
+Jury_ExcuseRequestDeniedReason=""
+Jury_FTARescheduleAllowed=0
+Jury_FunctionRequest="101"
+Jury_FunctionDescription="101"
+Jury_GroupInformationAvailable=1
+Jury_GroupInformationCallInOffset=1
+Jury_GroupInformationCallInStartTime="18:00"
+Juty_GroupInformationCallInStartTime="18:00"
+Jury_GroupInformationCallInEndTime="8:00"
+Jury_ReportingGroup=""
+Jury_HasFailedToAppear=0
+Jury_HasPaymentInformation=0
+Jury_IsLocationOSC=0
+Jury_JurorID=""              !"000012345"
+Jury_JurorPhoneNumber=""
+Jury_JurorPIN=""
+Jury_Name=""
+Jury_FirstName=""
+Jury_MiddleName=""
+Jury_LastName=""
+Jury_NewReportingDate=""
+Jury_NewSummons=0
+Jury_PaymentAmount=0
+Jury_PaymentDate=""
+Jury_PlayAlternateReportingDate=""
+Jury_ReasonCode=""
+Jury_ReportingDate=""
+Jury_ReportingLocationID=""
+Jury_ReportingLocationDescription=""
+Jury_ReportingTime="08:00"
+Jury_RequiredToAppearState=0
+Jury_RescheduleFirstPossibleDate=""
+Jury_RescheduleLastPossibleDate=""
+Jury_Result=0
+Jury_ScheduleChangeCount=0
+Jury_SendNoticeIndicator=""
+Jury_Status=""
+Jury_TypeCode=""
+Jury_VMCallbackTime="18:00"
+Jury_VMDefaultReportingTime="08:00" 
+Jury_VMReportingDate=""  !@@## set to blank for production
+Jury_VMReportingTime="08:00"
+Jury_VMReportingTimeChanged=0
+Jury_VMRequiredToAppear=0
+Jury_VMFTAOffset=3
+Jury_WorkPhoneNumber=0
+TestCaseStatus=""
+SelectedDate=""
+
+Jury_CityStateZip=""
+Jury_ServiceDates=""
+Jury_TotalServiceCredit=""
+Jury_Address=""
+Jury_PreparationDate=""
+Jury_TotalMileage=0
+AccessJSI=0
+Jury_SystemID="PROD"
+!Jury_SystemID="TRNG"
+Jury_SystemUserID="$IVR"
+Jury_Password="IVR"
+SR_ReportFormat=1		            !used by ScriptReport.dll 
+SR_ReportName=""                            !used by ScriptReport.dll
+SR_Result=0  
+TempLocation=""
+TempName=""
+tempVar=""
+ParkingMsg=""
+TestModePassword="0917"
+TimeoutRetryCounter=0
+TransferDialString="##5700#"
+UnknownID=0
+VAR_AssignedPort=0
+VariableName=""			
+VoicedTime="08:30"
+VT_Result=0
+VT_Running=0
+PlayJurorNotice=0
+FAQMessage=""
+
+!Jury Group reporting Variables
+JuryGroupClientURL=""
+ReportingTimeStockton=""
+ReportingTimeTracy=""
+ReportingTimeLodi=""
+ReportingLocationVox=""
+
+
+!========================================
+! Set System Defaults
+!========================================
+[BlockDefaults]
+Type=SetDefaults
+!DefaultWaitForMsg=0     	! False
+DefaultIgnoreMissingMsg=1    	! True
+DefaultFlushKeys=0     		! False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=StatE_Sorry
+DefaultTimeOutSec=5
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=StatE_Sorry
+DefaultLogCall=1     		! True
+DefaultLogMenu=1     		! True
+DefaultLogGetDigits=1     	! True
+DefaultLogPlay=1     		! True
+DefaultTerminator=""
+
+[GetInitialVariables]
+type=VariableManager
+VarList="HostAvailable,HolidayToday,isHoliday,AssistanceAvailable,OperatorOpen,OperatorClosed,RecordPassword,PhraseToRecord,TestModePassword,Jury_VMCallbackTime"
+OnError=LogInitialValues
+
+[LogInitialValues]
+type=log
+logmsg="Caller Number= "%@OriginationAddress%" Dialed Number= "%@DestinationAddress
+
+[Greeting]
+Type=Play
+Msg="Greeting"
+Msg="OptionalGreeting"
+
+[CheckHolidayToday]
+Type=Branch
+Var=HolidayToday
+1=PlayHolidayToday
+Next=CheckHostAvailable
+
+[PlayHolidayToday]
+Type=Play
+Msg="HolidayMessage"
+Next=CheckHostAvailable
+
+[CheckHostAvailable]
+type=Branch
+var=HostAvailable
+1=CheckASRAvailable
+0=DBDownMsg
+
+[DBDownMsg]
+type=play
+msg="dbdown"
+
+[DisableJSILookup]
+type=changevariable
+Jury_StatusEnum="JSIDown"
+Next=CheckASRAvailable
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[CheckASRAvailable]   ! page 004
+type=Branch
+var=@RecognizeDtmfMode
+1=SetModeToDTMF
+
+[ASRHelps]
+type=Play
+!Msg="ASRHelps"
+msg="silence"
+next=LanguageCheck
+
+[SetModeToDTMF]
+Type=ChangeVariable
+@RecognizeDtmfMode=1
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[LanguageCheck]   ! page 05
+Type=Branch
+var=@RecognizeDtmfMode
+0=ASRPath
+
+[DTMFPath]
+Type=Menu
+Msg="EnglishMenuDTMF"
+Msg="LanguageMenuDTMF"
+OnKey1=DBAvailable
+OnKey2=SpanishSelected
+OnKey3=DBAvailable
+OnKey4=DBAvailable
+OnKey5=DBAvailable
+OnKey6=DBAvailable
+OnKey7=DBAvailable
+OnKey8=DBAvailable
+OnKey9=DBAvailable
+OnKey0=DBAvailable		!rr changed while onsite per discussion with Shana (5/21/2010)
+!OnKey0=ACDAvailable
+OnKeyPound=StatE_Admin
+MaxBadKeys=2
+BadKeyMsg="InvalidSelectionDTMF"
+OnMaxBadKeys=DBAvailable
+TimeOutSec=4
+MaxTimeOuts=0
+TimeOutMsg="TimeoutDTMF"
+OnMaxTimeOuts=DBAvailable
+FlushKeys=True
+Next=DBAvailable
+
+[ASRPath]
+type=Recognize
+NoInputTimeOutMSec=1500
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="EnglishLanguage","LanguageMenu" 
+PromptMsgDTMF="EnglishMenuDTMF","LanguageMenuDTMF"        
+Grammar="Language"
+ResultFormat=DigitsorResult
+MisrecognizeMsg="TryAgain"
+BadKeyMsg="InvalidSelectionDTMF"
+HelpMsg="StandardHelp"
+OnKey1=StatE_EnglishDTMF
+OnKey2=StatE_SpanishDTMF
+OnKey0=SetScreenMsgLanguage
+OnKeyPound=StatE_Admin
+OnResult:English=StatE_EnglishASR !1 
+OnResult:Espanol=StatE_SpanishASR !2 
+OnResult:Operator=SetScreenMsgLanguage !0
+OnResult:Repeat=ASRPath
+!ShiftToDTMFMsg="silence"
+MaxRetryCount=1
+OnMaxRetries=DBAvailable
+OnDTMFError=StatE_EnglishDTMF
+SuccessMsg="SuccessMsg" 
+!OnRecognitionError=DBAvailable
+ConfidenceThreshold=30
+Next=DBAvailable
+
+[SetScreenMsgLanguage]
+type=changevariable
+ACD_RouteName=TempLocation%CallerLanguage
+
+[SetScreenMsgLanguage1]
+Type=ChangeVariable
+ScreenMsg="LanguageMenu"
+Next=ACDAvailable
+
+[OnDtmfErrorLanguageCheck]
+type=Play
+Msg="TryAgainDTMF"
+Next=LanguageCheck
+
+[OnOtherResultLanguageCheck]
+type=play
+msg="ShiftToDTMF"
+
+[OnDtmfErrorLanguageCheckShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec8]
+type=EndRecognitionSession
+
+[StatE_DTMF8]
+Type=Log
+LogMsg="Change to DTMF"
+Next=LanguageCheck
+
+[StatE_EnglishDTMF]
+Type=Log
+LogMsg="Chose English DTMF"
+
+[SetModeToEnglishDTMF]
+Type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec8e]
+type=EndRecognitionSession
+Next=SetModeToEnglishLanguage
+
+[StatE_EnglishASR]
+Type=Log
+LogMsg="English ASR"
+
+[SetModeToEnglishLanguage]
+type=setglobals
+Language="English"
+Next=DBAvailable
+
+[StatE_SpanishDTMF]
+Type=Log
+LogMsg="Chose Spanish DTMF"
+
+[SetModeToSpanishDTMF]
+Type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec8s]
+type=EndRecognitionSession
+Next=SpanishSelected
+
+[StatE_SpanishASR]
+Type=Log
+LogMsg="Chose ASR"
+Next=SpanishSelected
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Spanish Selected
+!========================================
+[SpanishSelected]   ! page 06
+Type=Log
+LogMsg="Calls Spanish"
+
+[SetSpanish]
+type=changevariable
+CallerLanguage="Spanish"
+ACD_RouteName="Spanish"
+
+
+[NonEnglishJuror]
+Type=play
+msg="NonEnglishJuror"
+
+[NonEnglishJurorMenu]
+type=menu
+msg="NonEnglishJurorMenu"
+OnKey1=DBAvailable
+OnKey0=SetScreenMsgNonEnglishJuror
+OnKeyStar=NonEnglishJuror
+OnKeyPound=NonEnglishJurorMenu
+
+[SetScreenMsgNonEnglishJuror]
+type=changevariable
+ScreenMsg="NonEnglish Juror"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[DBAvailable]   ! If Db is down, go direct to Construct Main Menu
+Type=Branch
+Var=HostAvailable
+1=JurorRecord
+0=ConstructMainMenu
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[JurorRecord]   ! page 018
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="QuickAccessMenu"
+PromptMsgDTMF="QuickAccessMenuDTMF"
+grammar="PersonalRecord"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=GetJurorID
+OnKey2=StatE_FAQs
+OnKey0=SetScreenMsgJurorRecord
+OnKeyPound=StatE_Admin
+OnKeyStar=JurorRecord
+OnResult:JurorRecord=GetJurorID     !2
+OnResult:Information=StatE_FAQs !3
+OnResult:Repeat=JurorRecord 
+OnDTMFError=StatE_Sorry
+OnMaxRetries=StatE_Sorry
+OnOtherResult=OnOtherResultJurorRecord
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+ConfidenceThreshold=20
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgJurorRecord]
+type=changeVariable
+ScreenMsg="Requested Agent: Juror Record"
+Next=ACDAvailable
+
+[OnDtmfErrorJurorRecord]
+type=Play
+Msg="TryAgainDTMF"
+Next=JurorRecord
+
+[OnOtherResultJurorRecord]
+type=play
+msg="TryAgain"
+Next=JurorRecord
+
+[OnDtmfErrorJurorRecordShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec30]
+type=EndRecognitionSession
+
+[StatE_DTMF30]
+Type=Log
+LogMsg="Change to DTMF"
+Next=JurorRecord
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[GetJurorID]   ! page 021
+type=changeVariable
+RetryCounter=0
+
+[SetNameRetry]
+Type=ChangeVariable
+NameRetry=0
+Next=GetJurorIDBlock
+
+[DBUnavailable]
+Type=ChangeVariable
+UnknownID=1
+
+[DataUnavailable]
+Type=Play
+Msg="DataUnavailable"
+Next=Exit
+
+[GetJurorIDBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+IntroMsg="GetIDIntro"
+IntroMsgDTMF="GetIDIntro"
+PromptMsg="EnterJurorID"
+PromptMsgDTMF=EnterJurorIDMsg
+!grammar="JurorIDNumber"
+grammar="builtin:grammar/digits?minlength=7;maxlength=9"
+HelpMsg="StandardHelp"
+DTMFTerminator="#"
+MinDigitsMsg="ExpectingSevenDTMF"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Agent=SetScreenMsgForGetID
+OnKeyStar=GetJurorID
+Var=Jury_JurorID
+ResultFormat=Digits
+ResultLengthMin=1
+ResultLengthMax=10
+!OnRecognitionError=SetScreenMsgForGetIDOnError
+!OnDTMFTimeout=SetScreenMsgForGetIDOnError
+OnDTMFError=SetScreenMsgForGetIDOnError
+MaxRetryCount=2
+BadKeyMsg="InvalidSelection"
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+SuccessMsg="Thanks"
+ConfidenceThreshold=30
+Next=CheckJurorIDLength
+
+[CheckJurorIDLength]
+type=branch
+var=@recognizeLength
+0=ACDAvailable
+1=ACDAvailable
+7=VerifyBadgeNumber
+8=VerifyBadgeNumber
+9=VerifyBadgeNumber
+Next=JurorIDIncrementRetry
+
+[VerifyBadgeNumber]
+type=log
+logmsg="Verify Badge number "%Jury_JurorID
+
+[VerifyBadgeNumberMenu]
+type=Recognize
+PromptMsg="DidYouSay",Jury_JurorID|C
+PromptMsgDTMF="BadgeNumberWas",Jury_JurorID|C,"VerifyIDMenuDTMF"
+Grammar="YesNoStaff"
+OnResult:Yes=RetrieveRecord
+OnResult:No=IncrementJurorIDRetry
+OnResult:Agent=SetScreenMsgForGetIDOnError
+OnOtherResult=OnOtherResultVerifyBadge
+OnKey0=SetScreenMsgForGetIDOnError
+OnKey1=RetrieveRecord
+OnKey2=IncrementJurorIDRetry
+!RecognizerFailureMsg="SpeechRecSystemError"
+OnDTMFError=SetScreenMsgForGetIDOnError
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[OnOtherResultVerifyBadge]
+type=play
+msg="TryAgain"
+
+[IncrementJurorIDRetry]
+type=changeVariable
+increment=RetryCounter
+
+[CheckCounterAgain]
+type=branch
+var=retryCounter
+3=SetScreenMsgForGetIDOnError
+Next=GetJurorIDBlock
+
+[JurorIDIncrementRetry]
+type=changevariable
+increment=RetryCounter
+
+[CheckJurorIDRetryCounter]
+type=branch
+var=retryCounter
+3=SetScreenMsgForGetIDOnError
+OnBelowRange=PlayExpectingSevenDigits
+OnAboveRange=SetScreenMsgForGetIDOnError
+
+[PlayExpectingSevenDigits]
+type=play
+msg="ExpectingSevenDTMF"
+Next=GetJurorIDBlock
+!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+[SetScreenMsgForGetIDOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: ENTERING Juror ID #"
+Next=StatE_Sorry
+
+[SetScreenMsgForGetID]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: ENTERING ID #"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Retrieve Record
+!========================================
+[RetrieveRecord]   ! page 026
+Type=log
+
+[HoldForRecord]
+Type=Play
+Msg="HoldForRecord"
+
+[LogJury_JurorID]
+Type=Log
+LogMsg=Jury_JurorID
+
+[ExecuteRecordRetrieval]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="GetJurorRecord"
+OnExecuteError=StatE_SystemError
+
+[LogGetJurorRecordResult]
+type=log
+logmsg="JurorID = "%Jury_JurorID%", JSI Get Record Result ="%Jury_Result
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[CheckRetrieveResult]  
+Type=Branch
+Var=Jury_Result
+"Ok"=StatE_RecordFound
+"JurorNotFound"=StatE_RecordNotFound     
+"JurorMismatch"=StatE_RecordNotFound
+"SystemError"=StatE_SystemError
+Next=StatE_SystemError
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Record Found
+[StatE_RecordFound]
+Type=Log
+var=Jury_JurorID,Jury_StatusEnum,Jury_LastName,Jury_ReportingDate,Jury_ReportingLocationID
+
+[CheckTestMode]
+type=Branch
+var=WindowTestMode
+0=LogMoreJurorInfo
+1=GetTimeWindowsFromVM
+
+[GetTimeWindowsFromVM] !For testing purposes
+type=VariableManager
+varlist="Jury_JurorID,Jury_IsReportingWeek,Jury_IsPastReportingWeek,Jury_IsCallInWindow,Jury_IsReportingDay,Jury_IsPastFTACutoffTime"
+OnError=StatE_SystemError
+
+[LogMoreJurorInfo]
+type=log
+var=Jury_JurorID,Jury_IsEligibleToReschedule,Jury_isEligibleForExcusal,Jury_IsReportingWeek,Jury_IsReportingDay,Jury_IsCallInWindow,Jury_IsPastFTACutOffTime,Jury_IsPastReportingDay,Jury_IsPastReportingWeek
+
+!"SUPCT"=StocktonReportingInfo
+!"LODI"=LodiReportingInfo
+!"TRACY"=TracyReportingInfo
+!"MAN"=MantecaReportingInfo
+[SetLocationSpecificMessages]
+type=changevariable
+CourtParking="CourtParking"%Jury_ReportingLocationID
+CourtName="CourtName"%Jury_ReportingLocationID
+CourtAddress="CourtAddress"%Jury_ReportingLocationID
+CourtReportOn="CourtReportOn"%Jury_ReportingLocationID
+
+[DetermineReportingWeekState]
+type=log
+var=Jury_IsReportingWeek,Jury_IsPastReportingWeek
+
+[CheckIsPastReportingWeek]
+type=branch
+var=Jury_IsPastReportingWeek
+1=SetIsPastReportingWeek
+0=CheckIsReportingWeek
+
+[SetisPastReportingWeek]
+type=changevariable
+ReportingWeekState="PastReportingWeek"
+Next=logReportingWeekState
+
+[CheckIsReportingWeek]
+type=branch
+var=Jury_IsReportingWeek
+1=SetIsReportingWeek
+0=CheckIsBeforeReportingWeek
+
+[SetIsReportingWeek]
+type=changevariable
+ReportingWeekState="isReportingWeek"
+Next=logReportingWeekState
+
+[CheckIsBeforeReportingWeek]
+type=ChangeVariable
+Jury_fn_i_Expression="Jury_IsReportingWeek==false && Jury_IsPastReportingWeek==false"
+Jury_fn_i_VariableName="BooleanResult"
+
+[ExecuteEvaluateExpression]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="fn_EvaluateBooleanExpression"
+OnExecuteError=logCheckError
+Next=CheckBooleanResult1
+
+[LogCheckError]
+type=log
+var=Result,ResultMessage
+Next=StatE_SystemError
+
+[CheckBooleanResult1]
+type=Branch
+var=Jury_BooleanResult
+0=LogReportingWeekError
+1=SetBeforeReportingWeek
+
+[SetBeforeReportingWeek]
+type=changevariable
+ReportingWeekState="BeforeReportingWeek"
+Next=logReportingWeekState
+
+[LogReportingWeekError]
+type=log
+logmsg="Error calculating Reporting Week window"
+
+[logReportingWeekState]
+type=log
+var=ReportingWeekState
+Next=VerifyName
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Record not found
+[StatE_RecordNotFound]
+Type=Log
+LogMsg="Record not found"
+Next=RecordNotFound
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!RecordNotFound
+!========================================
+[RecordNotFound]   ! page 041
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+IntroMsg="RecordNotFound",Jury_JurorID|C
+IntroMsgDTMF="RecordNotFound",Jury_JurorID|C
+PromptMsg="RecordNotFoundMenu"
+PromptMsgDTMF="RecordNotFoundMenuDTMF"
+grammar="ReenterID"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Agent=SetScreenMsgForRecordNotFound !0
+OnResult:Reenter=GetJurorID                  !1
+OnResult:Repeat=RecordNotFound
+Onkey1=GetJurorID
+Onkey0=SetScreenMsgForRecordNotFound
+OnkeyStar=RecordNotFound
+OnDTMFError=SetScreenMsgForRecordNotFoundOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForRecordNotFoundOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: RECORD NOT FOUND"
+Next=StatE_Sorry
+
+[SetScreenMsgForRecordNotFound]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: RECORD NOT FOUND"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Verify Name/ID
+!========================================
+[VerifyName]
+type=log
+logmsg=Jury_Name
+
+[SpellName]
+type=play
+msg="VerifyNameDTMF"
+msgstring=Jury_LastName%"|C"
+
+[VerifyNameMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="IsThisCorrect"
+PromptMsgDTMF="VerifyNameMenuDTMF"
+!IntroMsg=""
+!IntroMsgDTMF=""
+grammar="YesNoStaff"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Yes=NameIsValid                 !1
+OnResult:No=VerifyID                    !2
+OnResult:Agent=SetScreenMsgForVerifyName !0
+OnResult:Repeat=VerifyNameMenu               !*  Not really needed, internal to CCS
+OnKey1=NameIsValid
+OnKey2=VerifyID
+OnKey0=SetScreenMsgForVerifyName
+OnkeyStar=VerifyName
+OnDTMFError=SetScreenMsgForVerifyNameOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+SuccessMsg="SuccessMsg"
+ConfidenceThreshold=30
+FlushKeys=true
+
+[SetScreenMsgForVerifyNameOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: VERIFYING NAME"
+Next=StatE_Sorry
+
+[SetScreenMsgForVerifyName]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: VERIFYING NAME"
+Next=ACDAvailable
+
+[NameIsValid]
+type=log
+var=Jury_JurorID,Jury_StatusEnum,Jury_ReportingDate,Jury_ReportingGroup
+
+[LogNoticeInfo]
+type=log
+var=Jury_JurorID,Jury_EventType,Jury_ActivityType,Jury_ActivityReason,Jury_NoticeStatus,Jury_NoticeType
+
+[CheckJurorStatus]
+type=log
+
+[SetDisposition]
+Type=Branch
+Var=Jury_StatusEnum
+!"P"=StatE_StatusIsP ! Summoned
+!"A"=StatE_StatusIsA ! Available
+!"B"=StatE_StatusIsB ! Pool
+!"R"=StatE_StatusIsR ! Eligible
+!"C"=StatE_StatusIsC ! Assigned to case
+!"I"=StatE_StatusIsI ! In Service
+!"F"=StatE_StatusIsF ! Service Complete
+"Available"=StatE_Available
+"AssignedToCase"=StatE_AssignedToCase
+"Eligible"=StatE_Eligible
+"InService"=StatE_InService
+"Pool"=StatE_Pool
+"ServiceComplete"=StatE_JSIServiceComplete
+"Summoned"=StatE_Summoned
+Next=StatE_SystemError
+
+[StatE_Available]
+Type=Log
+LogMsg="Status = Available"
+
+[PlayStatusAMessage]
+Type=Play
+Msg="NeedToTransfer"
+
+[SetScreenMsgForStatusA]
+Type=ChangeVariable
+ScreenMsg="Status = A"
+Next=ACDAvailable
+
+[StatE_Eligible]
+Type=Log
+LogMsg="Status = R"
+
+[PlayStatusRMessage]
+Type=Play
+Msg="NeedToTransfer"
+
+[SetScreenMsgForStatusAorR]
+Type=ChangeVariable
+ScreenMsg="Status = A"
+Next=ACDAvailable
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[VerifyID]   ! page 027
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+IntroMsg="BadgeNumberWas",Jury_JurorID|C
+IntroMsgDTMF="BadgeNumberWas",Jury_JurorID|C
+PromptMsg="IsThisCorrect"
+PromptMsgDTMF="VerifyIDMenuDTMF"
+grammar="YesNoStaff"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Yes=SetScreenMsgForVerifyIDNameWrong !1
+OnResult:No=IncrementNameRetry                !2
+OnResult:Agent=SetScreenMsgForVerifyID        !0
+OnResult:Repeat=VerifyID                      !*  Not really needed, internal to CCS
+Onkey1=SetScreenMsgForVerifyIDNameWrong
+Onkey2=IncrementNameRetry
+Onkey0=SetScreenMsgForVerifyID
+OnkeyStar=VerifyID
+OnDTMFError=SetScreenMsgForVerifyIDOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForVerifyIDOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: VERIFYING ID "
+
+[StatE_VerificationProb2]
+Type=Log
+LogMsg="VerificationProb"
+Next=ACDAvailable
+
+[SetScreenMsgForVerifyIDNameWrong]
+Type=ChangeVariable
+ScreenMsg="Problem: Name on record is wrong"
+
+[StatE_VerificationProb3]
+Type=Log
+LogMsg="VerificationProb"
+Next=ACDAvailable
+
+[SetScreenMsgForVerifyID]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: VERIFYING ID "
+Next=ACDAvailable
+
+[IncrementNameRetry]
+Type=ChangeVariable
+Increment=NameRetry
+
+[VerifyIDNameRetry]
+Type=Branch
+Var=NameRetry
+3=StatE_VerificationProb
+Next=GetIDAgain
+OnAboveRange=StatE_VerificationProb
+
+[GetIDAgain]
+type=ChangeVariable
+EnterJurorIDMsg="GetIDAgain"
+Next=GetJurorID
+
+[StatE_VerificationProb]
+Type=Log
+LogMsg="VerificationProb"
+
+[VerifyIDScreenMsg2]
+Type=ChangeVariable
+ScreenMsg="Problem: ID not what caller entered"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Play Status Information
+!========================================
+[StatE_InService]   ! page 030
+Type=Log
+LogMsg="Status = I"
+Next=Jury_Excuse
+
+[StatE_Summoned]   ! page 030
+Type=Log
+LogMsg="Status = P"
+
+
+[Jury_Excuse]
+Type=Branch
+Var=Jury_ExcuseRequestDenied
+1=RequestDenied
+0=DoubleCheckRequestDenied ! Why double check?
+
+[DoubleCheckRequestDenied] ! Why?
+type=branch
+var=Jury_EventType
+"D"=RequestDenied
+
+[CheckJury_NoticeStatus]
+type=branch
+var=Jury_NoticeStatus
+"P"=SetNoticeMessageToPlay
+"T"=SetNoticeMessageToPlay
+Next=CheckJury_FailedToAppear
+
+[SetNoticeMessageToPlay]
+type=log
+logmsg="Pending Notice"
+
+[SetMessageToPlay]
+type=changeVariable
+Notice="Notice_"%Jury_ActivityType%Jury_ActivityReason
+
+[LogNoticeCode]
+type=log
+logmsg="Pending status, Notice message = "%Notice
+
+[CheckForPlayNotice]
+type=branch
+var=Notice
+"Notice_ADCD"=SetPlayNoticeVariable
+"Notice_AFFH"=SetPlayNoticeVariable
+"Notice_AMMT"=SetPlayNoticeVariable
+"Notice_ASST"=SetPlayNoticeVariable
+Next=CheckJury_FailedToAppear
+
+[SetPlayNoticeVariable]
+type=ChangeVariable
+PlayJurorNotice=1
+
+[CheckJury_FailedToAppear]
+Type=Branch
+Var=Jury_HasFailedToAppear
+0=CheckTimeWindows         
+
+[VerifyFromACDHasIDForReschedule]
+type=branch
+var=Jury_JurorID
+""=GetJurorID
+0=GetJurorID
+Next=JurorFTA
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[RequestDenied]   ! page 029
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg="RequestDenied"
+!IntroMsgDTMF="RequestDenied"
+!PromptMsg="RequestDenied","RequestDeniedMenu"
+PromptMsg="RequestDenied"
+PromptMsgDTMF="RequestDenied","RequestDeniedMenuDTMF"
+grammar="YesNoStaff"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=SetScreenMsgRequestDenied
+OnKey2=CheckJury_FailedToAppear
+OnKey0=SetScreenMsgRequestDenied
+OnkeyStar=RequestDenied
+OnResult:Yes=SetScreenMsgRequestDenied
+OnResult:No=CheckJury_FailedToAppear
+OnResult:Continue=SetScreenMsgRequestDenied    !1
+OnResult:Quit=CheckJury_FailedToAppear !2 
+OnResult:Agent=SetScreenMsgRequestDenied       !0
+OnResult:Repeat=RequestDenied     !*
+OnDtmfError=OnDtmfErrorRequestDenied
+OnOtherResult=OnOtherResultRequestDenied
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgRequestDenied]
+type=changeVariable
+ScreenMsg="Requested Agent: Excusal Request Denied"
+Next=ACDAvailable
+
+[OnDtmfErrorRequestDenied]
+type=Play
+Msg="TryAgainDTMF"
+Next=RequestDenied
+
+[OnOtherResultRequestDenied]
+type=play
+msg="TryAgain"
+!Next=DBNotAvailable
+Next=ACDAvailable
+
+[OnDtmfErrorRequestDeniedShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec11]
+type=EndRecognitionSession
+
+[StatE_DTMF11]
+Type=Log
+LogMsg="Change to DTMF"
+Next=RequestDenied
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Check Call-In Window  page 025 - 
+! If the caller is in the call-in Window, use the Jury_ReportingGroup and
+! go get their group reporting instructions.
+!
+[CheckTimeWindows]
+Type=log
+
+[CheckJuryGroupZero]
+type=branch
+var=Jury_ReportingGroup
+0=HandleGroupZero
+Next=CheckReportingWeek
+
+[CheckReportingWeek]
+type=Branch
+var=ReportingWeekState
+"BeforeReportingWeek"=GenericReportingInstructions
+"isReportingWeek"=GroupReportingInstructions
+"PastReportingWeek"=PastReportingWeek
+Next=GenericReportingInstructions
+
+!--------------------------------------
+! Past Reporting Week - Send to Agent
+[PastReportingWeek]
+type=log
+
+[PastReportingWeekMenu] ! Why is this person not marked FTA
+type=Play
+msg="ReportingDatePast"
+
+[SetScreenMsgForReportDatePast]
+Type=ChangeVariable
+ScreenMsg="Past Report Date"
+Next=ACDAvailable
+
+!---------------------------
+[HandleGroupZero]
+type=log
+
+[PlayReportingInstructionsGroup0]
+Type=Play
+msg="ReportGroup0"
+MsgString=Jury_ReportingDate%"|D|ddd mmm dd yyyy"
+msg="at"
+msgstring=Jury_ReportingTime%"|D|h:n a/p"
+msg="at"
+msg=CourtName
+msg="LocatedAt"
+msg=CourtAddress
+
+[PlaySpecificInstructionsMenu]
+type=Menu
+msg="HearAgainContinueDTMF"
+msg="ParkingInfo"
+OnKey1=ConstructMainMenu
+OnKey2=ParkingInformation
+OnKey0=SetScreenMsgForReportDateTime
+OnKeyStar=PlayReportingInstructionsGroup0
+OnKeyPound=PlayReportingInstructionsGroup0
+
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Play Generic Reporting Instructions
+[GenericReportingInstructions]
+type=log
+var=Jury_JurorID,Jury_ReportingDate
+
+[BranchOnPlayJurorNotice]
+type=branch
+var=PlayJurorNotice
+0=PlayGenericInstructions
+1=PlayJurorNotice
+Next=PlayGenericInstructions
+
+[PlayJurorNotice]
+type=play
+msg=Notice
+
+[PlayGenericInstructions]
+type=play
+msg=CourtReportOn
+MsgString=Jury_ReportingDate%"|D|ddd mmm dd yyyy"
+msg="at"
+msg=CourtName
+msg="LocatedAt"
+msg=CourtAddress
+Msg="CallbackToCheckTime2"
+Next=PlayGenericInstructionsMenu
+
+
+[PlayGenericInstructionsMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="HearAgainContinue"
+PromptMsgDTMF="HearAgainContinueDTMF","ParkingInfo"
+grammar="RepeatContinue"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Agent=SetScreenMsgForReportDateTime !0
+OnResult:Repeat=PlayGenericInstructionsMenu             !Not really needed, internal to CCS in english
+OnResult:HearAgain=GenericReportingInstructions
+OnResult:Continue=ConstructMainMenu
+OnResult:Hangup=Exit
+OnOtherResult=OnOtherResultPlayReportDateTimeMenu
+OnKey1=ConstructMainMenu
+OnKey2=ParkingInformation
+OnKey0=SetScreenMsgForReportDateTime
+OnKeyPound=GenericReportingInstructions
+OnKeyStar=GenericReportingInstructions
+OnDTMFError=SetScreenMsgForReportDateTimeOnError
+OnDTMFTimeout=ConstructMainMenu
+MaxRetryCount=2
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+BadKeyMsg="InvalidSelection"
+
+[OnOtherResultPlayReportDateTimeMenu]
+type=play
+msg="TryAgain"
+Next=PlayGenericInstructionsMenu
+
+[SetScreenMsgForReportDateTime]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Reporting Date"
+Next=ACDAvailable
+
+[SetScreenMsgForReportDateTimeOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Reporting Date"
+Next=StatE_Sorry
+
+[ParkingInformation]
+type=MENU
+msg=CourtParking
+msg="HearAgainContinueDTMF"
+OnKey1=ConstructMainMenu
+OnKey0=SetScreenMsgForReportDateTime
+OnKeyPound=ParkingInformation
+OnKeyStar=ParkingInformation
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!  FTA - Send to staff    page 031
+[JurorFTA]  
+Type=Play
+Msg="WereScheduled"
+MsgString=Jury_ReportingDate%"|D|ddd mmm dd yyyy"   !from JSI record
+Next=SetScreenMsgFTA
+
+[SetScreenMsgFTA]
+type=changevariable
+ScreenMsg="FTA"
+
+[PlayFTASpeakToStaff]
+type=play
+Msg="YouNeedToSpeakWithStaff"
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! page 026
+[StatE_AssignedToCase] 
+Type=Log
+LogMsg="Status = C"
+
+[PlayStatusCMessage]
+Type=Play
+Msg="FulfillingObligation"
+
+[StatusIsCMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="StatusMenu"
+PromptMsgDTMF="StatusMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:Agent=SetScreenMsgForExemptOrExcuse !0
+OnResult:Repeat=PlayStatusCMessage         !*  Not really needed, internal to CCS
+OnResult:HearAgain=PlayStatusCMessage          !#
+OnResult:MainMenu=ConstructMainMenu
+OnResult:Continue=ConstructMainMenu
+Onkey1=ConstructMainMenu
+Onkey0=SetScreenMsgForStatusIsC
+OnkeyStar=PlayStatusCMessage
+OnkeyPound=StatusIsCMenu
+OnDTMFError=SetScreenMsgForStatusIsCOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForStatusIsCOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Juror Status is C  - Assigned to Case"
+Next=StatE_Sorry
+
+[SetScreenMsgForStatusIsC]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Status is C: Assigned to Case or Pool"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! page 026
+[StatE_Pool] 
+Type=Log
+LogMsg="Status = Pool (B)"
+
+[PlayStatusBMessage]
+Type=Play
+Msg="FulfillingObligation"
+
+[StatusIsBMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="StatusMenu"
+PromptMsgDTMF="StatusMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:Agent=SetScreenMsgForExemptOrExcuse !0
+OnResult:Repeat=PlayStatusBMessage         !*  Not really needed, internal to CCS
+OnResult:HearAgain=PlayStatusBMessage          !#
+OnResult:MainMenu=ConstructMainMenu
+OnResult:Continue=ConstructMainMenu
+Onkey1=ConstructMainMenu
+Onkey0=SetScreenMsgForStatusIsB
+OnkeyStar=PlayStatusBMessage
+OnkeyPound=StatusIsBMenu
+OnDTMFError=SetScreenMsgForStatusIsBOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForStatusIsBOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Status=Pool"
+Next=StatE_Sorry
+
+[SetScreenMsgForStatusIsB]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Pool"
+Next=ACDAvailable
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! page 032
+! Juror Status is "F"
+
+[StatE_JSIServiceComplete]
+Type=Log
+LogMsg="JSI Service Complete"
+
+[CheckTypeCode]
+type=Branch
+var=Jury_ActivityType
+"DP"=JurorDisqualified
+"EP"=JurorExcused
+"DI"=JurorDisqualified
+"EI"=JurorExcused
+"EX"=JurorExcused
+"F1"=JurorExcused
+"F2"=JurorExcused
+"NQ"=JurorExcused
+
+
+[JurorComplete]
+Type=Play
+Msg="NoService"
+Next=StatusIsFMenu
+
+[JurorExcused]
+type=play
+msg="DisqualificationOrExcuseGranted"
+Next=StatusIsFMenu
+
+[JurorDisqualified]
+type=play
+msg="DisqualificationOrExcuseGranted"
+Next=StatusIsFMenu
+
+[StatusIsFMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="StatusMenu"
+PromptMsgDTMF="StatusMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:Agent=SetScreenMsgForStatusIsF      !0
+OnResult:Repeat=StatusIsFMenu                !*  Not really needed, internal to CCS
+OnResult:HearAgain=CheckTypeCode                 !#
+OnResult:MainMenu=ConstructMainMenu
+Onkey1=ConstructMainMenu
+Onkey0=SetScreenMsgForStatusIsF
+OnkeyStar=CheckTypeCode
+OnkeyPound=StatusIsFMenu
+OnDTMFError=SetScreenMsgForStatusIsFOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForStatusIsFOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Juror Status is F - Completed"
+Next=StatE_Sorry
+
+[SetScreenMsgForStatusIsF]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Juror Status is F - Completed"
+Next=ACDAvailable
+
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! This is the entry point for callers after they have entered
+! their JurorID (rather than group number). 
+!
+! Error conditions (No instructions, group number not found) are
+! treated as system errors because the Group Number comes from the DB
+! and the user has no ability to re-enter the number if they even know it.
+!
+[GroupReportingInstructions]
+type=log
+var=Jury_JurorID,Jury_ReportingGroup,Jury_ReportingDate,ReportingWeekState,Jury_IsCallInWindow,Jury_IsReportingDay,Jury_IsPastFTACutOffTime
+
+!retrieve Group Reporting Instructions----
+[GetGroupReportingInstructions]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="GetGroupReportingInstructions"
+OnExecuteError=GetGroupInstDLLError
+Next=LogGroupReportingInfo
+
+[GetGroupInstDLLError]
+Type=Log
+LogMsg="Error: Get Group Info"
+Next=StatE_SystemError
+
+[LogGroupReportingInfo]
+type=log
+Var=Jury_Result,Jury_ReportingGroup,Jury_IsGroupInstructionAvailable,Jury_GroupStatusEnum,Jury_GroupReportingDate,Jury_GroupReportingLocation,Jury_GroupReportingTime,Jury_GroupReportingCallbackTime
+
+[CheckInstructionsAvailable]
+type=Branch
+var=Jury_IsGroupInstructionAvailable
+0=InstructionsCurrentlyNotAvailable
+1=GroupFoundCheck
+
+[InstructionsCurrentlyNotAvailable]
+type=play
+msg="InstructionsNotAvailable"
+Next=ConstructMainMenu
+
+[GroupFoundCheck]   
+Type=Branch
+Var=Jury_Result
+"Ok"=CheckIsPastReportingDay
+Next=GroupInstrNotOk
+
+[GroupInstrNotOk]
+type=Play
+msg="SorryNoInstructions"
+Next=ConstructMainMenu
+
+!-----------------------------------------------
+! Check is Past Reporting Day
+[CheckIsPastReportingDay]
+type=Branch
+var=Jury_IsPastReportingDay
+0=CheckIsReportingDay
+1=PastReportingDay
+Next=PastReportingDay
+
+!--------------------------------------
+! Past Reporting Day - Send to Agent
+[PastReportingDay]
+type=log
+
+[PastReportingDayMenu] ! Why is this person not marked FTA
+type=Play
+msg="ReportingDatePast"
+
+[SetScreenMsgForReportDayPast]
+Type=ChangeVariable
+ScreenMsg="Past Report Date"
+Next=ACDAvailable
+
+!---------------------------------------
+! Check if today is Reporting Day
+! Juror is not past their reporting day
+[CheckIsReportingDay]
+type=Branch
+var=Jury_IsReportingDay
+0=CheckCallinWindow
+1=CheckIsRequiredToReport
+
+[CheckIsRequiredToReport]
+type=Branch
+var=Jury_GroupStatusEnum
+"RequiredToReport"=CheckPastFTACutoff
+Next=CheckCallinWindow
+
+[CheckPastFTACutoff]
+type=Branch
+var=Jury_IsPastFTACutOffTime
+0=PlayTodayIsReportingDay	! It's their reporting day but they can still report
+1=PastReportingDay			! It's their reporting date but too late - send to agent
+
+[PlayTodayIsReportingDay]
+type=Play
+msg="TodayIsReportingDay"
+Next=ProcessGroupReportingInstructions !This skips the callin window check, plays their instructions because it's their reporting day before FTA cutoff
+
+!---------------------------------------------
+! Check if it's in the evening callin window
+[CheckCallinWindow]
+type=Branch
+var=Jury_IsCallInWindow
+0=ReportingDayCheck
+1=ProcessGroupReportingInstructions
+
+[ReportingDayCheck]	!This section is probably not needed, the reporting day check was done elsewhere already. 
+type=log
+
+[SetVarsToCheckBooleans]	! Check if it's their reporting day AND they are required to Report
+type=ChangeVariable
+Jury_fn_i_Expression="Jury_IsReportingDay==true && Jury_GroupStatusEnum=='RequiredToReport'"
+Jury_fn_i_VariableName="BooleanResult"
+
+[ExecuteEvaluateExpression2]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="fn_EvaluateBooleanExpression"
+OnExecuteError=LogEvalBoolError
+
+[LogEvalBoolError]
+type=log
+var=Result,ResultCode,ResultMessage
+
+[CheckBooleanResult2]
+type=Branch
+var=Jury_BooleanResult	! isReportingDay & required to report
+0=CallbackInEvening
+1=CheckPastFTACutoff	! if true, check if it's past the FTA cutoff time
+Next=CallbackInEvening
+
+[CheckPastFTACutoff2]
+type=Branch
+var=Jury_IsPastFTACutOffTime
+0=SetComeInAnywayFlag
+1=PastReportingWeek
+
+[SetComeInAnywayFlag]
+type=changeVariable
+ComeInAnywayFlag=1
+Next=ProcessGroupReportingInstructions
+
+[CallbackInEvening]
+type=Play
+msg="CallbackThisEvening1"
+msgstring=Jury_VMCallbackTime%"|D|h:n a/p"
+msg="CallbackThisEvening2"
+Next=ConstructMainMenu
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[ProcessGroupReportingInstructions]
+type=log
+
+[CheckGroupStatusEnum]
+type=Branch
+var=Jury_GroupStatusEnum
+"ServiceCompleted"=StatE_ServiceComplete
+"RequiredToReport"=StatE_RequiredToReport
+"CallbackRequired"=StatE_CallbackRequired
+Next=StatE_SystemError
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_GroupNumberNotFound] ! Page 09
+type=log
+logmsg="Group # Not Found"
+
+[PlayGroupNumberNotFound]
+type=play
+msg="GroupNumberNotFoundDTMF"
+Next=ACDAvailable
+
+[StatE_NoReportingInstructions]   ! page 10
+Type=Log
+LogMsg="Grp-No Reprtng Instr"
+Next=PlayGroupNumberNotFound
+
+[NoReportingInstructions]
+Type=Play
+Msg="Group"
+MsgString=Jury_ReportingGroup  
+Msg="NoInstructions"
+
+[NoReportingInstructionsRecBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="RepeatMessage","InquiriesMenu","HangupMenu"
+PromptMsgDTMF="RepeatMessageDTMF","InquiriesMenuDTMF","HangupMenuDTMF"
+grammar="Inquiries"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=DBAvailable
+OnKey2=Goodbye
+OnKey0=SetScreenMsgNoReportingInstructions
+OnKeyPound=NoReportingInstructions
+OnResult:Inquiries=DBAvailable        			!1
+OnResult:Hangup=Goodbye                  			!2 
+OnResult:Agent=SetScreenMsgNoReportingInstructions	!0
+OnResult:Repeat=NoReportingInstructionsRecBlock
+OnResult:HearAgain=NoReportingInstructions
+OnDTMFError=Exit
+OnOtherResult=OnOtherResultNoReportingInstructions
+MaxRetryCount=2
+BadKeyMsg="InvalidSelection"
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgNoReportingInstructions]
+type=changeVariable
+ScreenMsg="Requested Agent: No Reporting Instructions"
+Next=ACDAvailable
+
+[OnDtmfErrorNoReportingInstructions]
+type=Play
+Msg="TryAgainDTMF"
+Next=NoReportingInstructions
+
+[OnOtherResultNoReportingInstructions]
+type=play
+msg="TryAgain"
+Next=NoReportingInstructions
+
+[OnDtmfErrorNoReportingInstructionsShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec4]
+type=EndRecognitionSession
+
+[StatE_DTMF4]
+Type=Log
+LogMsg="Change to DTMF"
+Next=NoReportingInstructions
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_ServiceComplete]                 ! page 13
+Type=Log
+LogMsg="Grp-Service Complete"
+
+[ServiceComplete]                       ! Changed from NotRequiredToReport
+Type=Play
+Msg="Group"
+MsgString=Jury_ReportingGroup  
+Msg="For"
+MsgString=Jury_GroupReportingDate%"|D|ddd mmm dd yyyy"
+Msg="IsNotRequiredToReport"
+
+[ServiceCompleteRecBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+PromptMsg="RepeatMessage","InquiriesMenu","HangupMenu"
+PromptMsgDTMF="RepeatMessageDTMF","ToSpeakWithStaffMemberDTMF","InquiriesMenuDTMF","HangupMenuDTMF"
+grammar="Inquiries"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ConstructMainMenu
+OnKey2=Goodbye
+OnKey0=SetScreenMsgServiceComplete
+OnKeyPound=StatE_ServiceComplete
+OnResult:Inquiries=DBAvailable     !1
+OnResult:Hangup=Goodbye              !2 
+OnResult:Agent=SetScreenMsgServiceComplete          !0
+OnResult:Repeat=ServiceCompleteRecBlock
+OnResult:HearAgain=ServiceComplete
+OnDTMFError=Exit
+OnOtherResult=OnOtherResultServiceComplete
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgServiceComplete]
+type=changeVariable
+ScreenMsg="Requested Agent: Service Complete"
+Next=ACDAvailable
+
+[OnDtmfErrorServiceComplete]
+type=Play
+Msg="TryAgainDTMF"
+Next=ServiceComplete
+
+[OnOtherResultServiceComplete]
+type=play
+msg="TryAgain"
+Next=ServiceCompleteRecBlock
+
+[OnDtmfErrorServiceCompleteShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec5]
+type=EndRecognitionSession
+
+[StatE_DTMF5]
+Type=Log
+LogMsg="Change to DTMF"
+Next=ServiceComplete
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_RequiredToReport]   ! page 14
+Type=Log
+LogMsg="Grp-Req To Report"
+
+[CheckGroupReportingLocation]
+type=Branch
+var=Jury_GroupReportingLocation
+"Stockton"=SetStockton
+"Manteca"=SetManteca
+"Tracy"=SetTracy
+"Lodi"=SetLodi
+Next=SetStockton
+
+[SetStockton]
+type=changeVariable
+Jury_GroupReportingLocation="SUPCT"
+Next=ResetLocationVariables
+
+[SetManteca]
+type=changeVariable
+Jury_GroupReportingLocation="MAN"
+Next=ResetLocationVariables
+
+[SetTracy]
+type=changeVariable
+Jury_GroupReportingLocation="TRACY"
+Next=ResetLocationVariables
+
+[SetLodi]
+type=changeVariable
+Jury_GroupReportingLocation="LODI"
+Next=ResetLocationVariables
+
+[ResetLocationVariables]
+type=changeVariable
+CourtParking="CourtParking"%Jury_GroupReportingLocation
+CourtName="CourtName"%Jury_GroupReportingLocation
+CourtAddress="CourtAddress"%Jury_GroupReportingLocation
+CourtReportOn="CourtReportOn"%Jury_GroupReportingLocation
+Next=RequiredToReport
+
+[CheckComeInAnywayFlag]
+type=Branch
+var=ComeInAnywayFlag
+0=RequiredToReport
+1=PlayComeInAnyway
+Next=RequiredToReport
+
+[PlayComeInAnyway]
+type=play
+msg="ComeInAnyway"
+
+[RequiredToReport]
+Type=Play
+Msg="JurorsInGroup"
+MsgString=Jury_ReportingGroup   
+Msg="RequiredToday"
+MsgString=Jury_GroupReportingDate%"|D|ddd mmm dd yyyy"
+Msg="At"
+MsgString=Jury_GroupReportingTime%"|D|h:n a/p"
+msg="To"
+msg=CourtName
+!Msg=ReportingLocationVox
+msg="WhenReporting"
+
+
+[RequiredToReportRecBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="RepeatMessage","InquiriesMenu","HangupMenu"
+PromptMsgDTMF="GroupReportingMenu"
+grammar="InquiriesFAQ"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ConstructMainMenu
+OnKey2=StatE_FAQs
+OnKey3=Goodbye
+OnKey0=SetScreenMsgRequiredToReport
+OnKeyPound=RequiredToReport
+OnResult:Inquiries=DBAvailable  !1
+OnResult:Information=StatE_FAQs     !2
+OnResult:Hangup=Goodbye           !3 
+OnResult:Agent=SetScreenMsgRequiredToReport       !0
+OnResult:Repeat=RequiredToReportRecBlock
+OnResult:HearAgain=RequiredToReport
+OnDTMFError=Exit
+OnOtherResult=OnOtherResultRequiredToReport
+MaxRetryCount=2
+BadKeyMsg="InvalidSelection"
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgRequiredToReport]
+type=changeVariable
+ScreenMsg="Requested Agent: Service Complete"
+Next=ACDAvailable
+
+[OnDtmfErrorRequiredToReport]
+type=Play
+Msg="TryAgainDTMF"
+Next=RequiredToReport
+
+[OnOtherResultRequiredToReport]
+type=play
+msg="TryAgain"
+Next=RequiredToReport
+
+[OnDtmfErrorRequiredToReportShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec6]
+type=EndRecognitionSession
+
+[StatE_DTMF6]
+Type=Log
+LogMsg="Change to DTMF"
+Next=RequiredToReport
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_CallbackRequired]         ! page 15
+Type=Log
+LogMsg="Grp-Callback Requrd"
+
+[CallbackRequired]
+type=log
+
+[ExtractCallbackTime]
+type=copystring
+var=CallbackTime
+string=Jury_GroupReportingCallbackTime
+start=12
+Count=5
+
+[CheckForMiddayCallin]
+Type=Branch
+Var=CallbackTime
+"11:00"=StatE_MiddayCallin
+"11:15"=StatE_MiddayCallin
+Next=LogDatetimes
+
+[LogDateTimes]
+type=log
+var=Jury_GroupReportingDate,Jury_GroupReportingCallbackTime
+
+[PlayCallback]
+Type=Play
+msg="PleaseCallback2"
+MsgString=Jury_GroupReportingDate%"|D|ddd mmm dd yyyy"
+msg="After"
+msgstring=Jury_GroupReportingCallbackTime%"|D|h:n a/p"
+msg="Callback2"
+msg="silence"
+
+[CallbackRequiredRecBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+PromptMsg="RepeatMessage","InformationMenu","InquiriesMenu","HangupMenu"
+PromptMsgDTMF="GroupReportingMenu"
+grammar="InquiriesFAQ"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ConstructMainMenu
+OnKey2=StatE_FAQs
+OnKey0=SetScreenMsgCallbackRequired
+OnKeyPound=CallbackRequired
+OnResult:Inquiries=DBAvailable  !1
+OnResult:Information=StatE_FAQs
+OnResult:Hangup=Goodbye           !2 
+OnResult:Agent=SetScreenMsgCallbackRequired       !0
+OnResult:Repeat=CallbackRequiredRecBlock
+OnResult:HearAgain=CallbackRequired
+OnDTMFError=Exit
+OnOtherResult=OnOtherResultCallbackRequired
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgCallbackRequired]
+type=changeVariable
+ScreenMsg="Requested Agent: Callback Required"
+Next=ACDAvailable
+
+[OnDtmfErrorCallbackRequired]
+type=Play
+Msg="TryAgainDTMF"
+Next=CallbackRequired
+
+[OnOtherResultCallbackRequired]
+type=play
+msg="TryAgain"
+Next=CallbackRequiredRecBlock
+
+[OnDtmfErrorCallbackRequiredShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec7]
+type=EndRecognitionSession
+
+[StatE_DTMF7]
+Type=Log
+LogMsg="Change to DTMF"
+Next=CallbackRequired
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_MiddayCallin]         ! page 015A
+Type=Log
+LogMsg="Grp-Midday Callin"
+
+[PlayMiddayCallin]
+Type=Play
+msg="MiddayCallin"
+MsgString=Jury_GroupReportingDate%"|D|ddd mmm dd yyyy"
+msg="OnePMReport"
+msg="GoToWork"
+
+[MiddayCallinRecBlock]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="RepeatMessage","InformationMenu","InquiriesMenu","HangupMenu"
+PromptMsgDTMF="GroupReportingMenu"
+grammar="InquiriesFAQ"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ConstructMainMenu
+OnKey2=StatE_FAQs
+OnKey0=SetScreenMsgMiddayCallin
+OnKeyPound=PlayMiddayCallin
+OnResult:Inquiries=DBAvailable  !1
+OnResult:Hangup=Goodbye           !2 
+OnResult:Agent=SetScreenMsgMiddayCallin       !0
+OnResult:Repeat=MiddayCallinRecBlock
+OnResult:HearAgain=PlayMiddayCallin
+OnDTMFError=Exit
+OnOtherResult=OnOtherResultMiddayCallin
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgMiddayCallin]
+type=changeVariable
+ScreenMsg="Requested Agent: Midday Callin"
+Next=ACDAvailable
+
+[OnDtmfErrorMiddayCallin]
+type=Play
+Msg="TryAgainDTMF"
+Next=PlayMiddayCallin
+
+[OnOtherResultMiddayCallin]
+type=play
+msg="TryAgain"
+Next=PlayMiddayCallin
+
+[OnDtmfErrorMiddayCallinShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec9]
+type=EndRecognitionSession
+
+[StatE_DTMF9]
+Type=Log
+LogMsg="Change to DTMF"
+Next=PlayMiddayCallin
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Main Menu
+!========================================
+!
+! As we have learned, if you sent a "PlayOption" this affects both the variable in the message 
+! as well as the corresponding DTMF Key
+!
+[ConstructMainMenu]   ! page 033 & 034 & 35
+Type=branch
+Var=Jury_StatusEnum
+"Available"=SetAvailableOptions
+"AssignedToCase"=SetAssignedOptions
+"Eligible"=SetEligibleOptions
+"InService"=SetServingOptions
+"Pool"=SetPoolOptions
+"ServiceComplete"=SetCompletedOptions
+"Summoned"=SetSummonedOptions
+"Unknown"=SetUnknownOptions
+"JSIDown"=SetNOJSIAPI
+Next=SetUnknownOptions
+
+
+!--------------------------------------------------
+! Juror Menu Options
+! 
+! 1 - Deferrals
+! 2 - FAQs (Always Available)
+! 3 - Request an disqualification
+! 4 - Temporary Excusal
+! 5 - Enter Juror Id
+! 6 - Payment info
+! 7 - Work Cert
+! 0 - Assistance
+! # - Hear options again
+! * - Hear options again
+!-----------------------------------------------
+! Menu options for each STATE.
+! 
+[SetUnknownOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 1
+@PlayOption6 = 1
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetNOJSIAPI]
+type=changevariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 1
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetCompletedOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetEligibleOptions]
+type=changeVariable
+@PlayOption1 = Jury_IsEligibleToReschedule
+@PlayOption2 = 1
+@PlayOption3 = 1
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetPoolOptions]
+type=changeVariable
+@PlayOption1 = Jury_IsEligibleToReschedule
+@PlayOption2 = 1
+@PlayOption3 = 1
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetSummonedOptions]
+type=changeVariable
+@PlayOption1 = Jury_IsEligibleToReschedule
+@PlayOption2 = 1
+@PlayOption3 = 1
+@PlayOption4 = 0
+@PlayOption5 = 0
+@PlayOption6 = 0
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+[SetAvailableOptions]
+type=changeVariable
+@PlayOption1 = Jury_IsEligibleToReschedule
+@PlayOption2 = 1     
+@PlayOption3 = 1
+@PlayOption4 = 4     ! 
+@PlayOption5 = 0     ! 
+@PlayOption6 = 0     ! 
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+
+[SetServingOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0
+@PlayOption4 = 1
+@PlayOption5 = 0
+@PlayOption6 = 0
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+
+[SetAssignedOptions]
+type=changeVariable
+@PlayOption1 = 0
+@PlayOption2 = 1
+@PlayOption3 = 0 
+@PlayOption4 = 0 
+@PlayOption5 = 0
+@PlayOption6 = 0 
+@PlayOption7 = 0
+Next=CheckGlobalOptions
+
+! 1 - Deferrals
+! 2 - FAQs (Always Available)
+! 3 - Request an disqualification
+! 4 - Temporary Excusal
+! 5 - Enter Juror Id
+! 6 - Payment info
+! 7 - Work Cert
+! 0 - Assistance
+! # - Hear options again
+! * - Hear options again
+!--------------------------------------------------
+! Check global menu Options
+! 
+[CheckGlobalOptions]
+type=log
+
+!--------------------------------------------------
+! If AllowDeferrals is False, turn off Deferrals
+! 
+[CheckGlobalDeferrals]
+type=branch
+var=AllowDeferrals
+0=SetNoDeferrals
+Next=CheckGlobalDisqualifications
+
+[SetNoDeferrals]
+type=ChangeVariable
+@PlayOption1=0
+
+!---------------------------------------------------------------
+! If AllowDisqualifications is False, turn off Disqualifications
+! 
+[CheckGlobalDisqualifications]
+type=branch
+var=AllowDisqualifications
+0=SetNoDisqualifications
+Next=CheckGlobalExcusals
+
+[SetNoDisqualifications]
+type=changeVariable
+@PlayOption3 = 0
+
+!---------------------------------------------------------------
+! If AllowExcusals is False, turn off Disqualifications
+! 
+[CheckGlobalExcusals]
+type=branch
+var=AllowExcusals
+0=SetNoExcusals
+Next=MainMenu
+
+[SetNoExcusals]
+type=changeVariable
+@PlayOption4 = 0
+Next=MainMenu
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+[MainMenu]   ! page 036
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+grammar="MainMenu"
+PromptMsg="Say","MainReschedule"|X|1,"MainAttendanceDates"|X|2,"MainWorkCert"|X|3,"MainFAQ","AccessJurorRecord"|X|5,"MainPaymentInfo"|X|6,"MainStaff"|X|7,"MakeChoice"
+PromptMsgDTMF="MainMenuGreeting","MainMenu1"|X|1,"MainMenu2"|X|2,"MainMenu3"|X|3,"MainMenu4"|X|4,"MainMenu5"|X|5,"MainMenu6"|X|6,"MainMenu7"|X|7,"MainMenu0","MainMenuFinal"
+Onkey1=StatE_DateReschedule
+Onkey2=StatE_FAQs
+Onkey3=StatE_RequestDisqual
+Onkey4=StatE_RequestExcusal
+Onkey5=GetJurorID
+Onkey6=StatE_PaymentInfo
+Onkey7=StatE_WorkCertificate
+!OnKey9=AutopostponeTest
+OnKey0=SetScreenMsgForMainMenu
+OnkeyStar=ConstructMainMenu
+Onkeypound=ConstructMainMenu
+OnResult:"Reschedule"=StatE_DateReschedule
+OnResult:"Attendance"=StatE_AttendanceDates
+OnResult:"WorkCertificate"=StatE_WorkCertificate
+OnResult:"Information"=StatE_FAQs
+OnResult:"Repeat"=ConstructMainMenu
+OnResult:"Agent"=SetScreenMsgForMainMenu
+OnResult:"JurorRecord"=GetJurorID
+OnResult:PaymentInfo=PaymentInfo
+OnResult:Hangup=EndCall
+OnDTMFError=SetScreenMsgForMainMenu
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="ShiftToDTMF"
+
+[AutopostponeTest]
+type=log
+
+[ApplyAutopostponement]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="ApplyAutoPostponement"
+OnExecuteError=StatE_SystemError
+
+[LogAutopostponeResults]
+type=log
+var=Jury_Result,Jury_NewReportingDate
+Next=Exit
+
+
+[SetScreenMsgForMainMenu]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: MAIN MENU"
+Next=ACDAvailable
+
+
+[StatE_RequestDisqual]
+type=log
+
+[SetDisqusalCodeCG]
+type=changeVariable
+Jury_TypeCode="EP"
+Jury_ReasonCode="CG"
+
+[RequestExcusal]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="ApplyServiceEnd"
+OnExecuteError=StatE_SystemError
+
+[LogExcusalResult]
+type=log
+var=Jury_Result
+Next=ConstructMainMenu
+
+[StatE_RequestExcusal]
+type=log
+Next=ConstructMainMenu
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! New Pages for hearing attendance dates
+! page 038
+[StatE_AttendanceDates]
+type=log
+logmsg="HearAttendanceDates"
+
+[GetAttendanceDates]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="Jury_GetWorkCertificate"
+OnExecuteError=GetAttendanceDLLError
+
+[CheckGetAttendanceDatesStatus]
+type=branch
+var=Jury_Result
+0=CheckServiceDates
+OnBelowRange=SetScreenMsgForAttendanceDatesOnError
+OnAboveRange=SetScreenMsgForAttendanceDatesOnError
+
+[CheckServiceDates]
+type=branch
+var=Jury_TotalServiceCredit
+"0"=PlayNoServiceCredits
+"0.0"=PlayNoServiceCredits
+Next=PlayAttendanceDates
+
+[PlayAttendanceDates]
+type=play
+msg="RecentAttendanceDates"
+
+[PlayTTSAttendanceDates]
+type=play
+ttsstring=Jury_ServiceDates
+
+[AttendanceDatesMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="StatusMenu"
+PromptMsgDTMF="StatusMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:Agent=SetScreenMsgForAttendanceDates      !0
+OnResult:Repeat=AttendanceDatesMenu                !*  Not really needed, internal to CCS
+OnResult:HearAgain=PlayAttendanceDates                !#
+OnResult:MainMenu=ConstructMainMenu
+Onkey1=ConstructMainMenu
+Onkey0=SetScreenMsgForAttendanceDates
+OnkeyStar=PlayAttendanceDates
+OnkeyPound=AttendanceDatesMenu
+OnDTMFError=SetScreenMsgForAttendanceDatesOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForAttendanceDatesOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Getting Attendance Dates"
+Next=StatE_Sorry
+
+[SetScreenMsgForAttendanceDates]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Attendance Dates"
+Next=ACDAvailable
+
+[GetAttendanceDLLError]
+Type=Log
+LogMsg="Did not Execute Jury_GetWorkCertificate"
+Next=GetAttendanceDataProblem
+
+[GetAttendanceDataProblem]
+type=Play
+msg="GetAttendanceDataProblem"
+Next=ConstructMainMenu
+
+!==========================================================
+! page 040
+!
+[PlayNoServiceCredits]
+type=play
+msg="NoServiceCredits"
+
+[NoServiceDatesMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="StatusMenu"
+PromptMsgDTMF="StatusMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:MainMenu=ConstructMainMenu
+OnResult:Agent=SetScreenMsgForNoServiceDates      !0
+OnResult:Repeat=NoServiceDatesMenu
+OnResult:HearAgain=PlayNoServiceCredits!#
+Onkey1=ConstructMainMenu
+Onkey0=SetScreenMsgForNoServiceDates
+OnkeyStar=PlayNoServiceCredits
+OnkeyPound=NoServiceDatesMenu
+OnDTMFError=SetScreenMsgForNoServiceDatesOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForNoServiceDatesOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: No Attendance Dates"
+Next=StatE_Sorry
+
+[SetScreenMsgForNoServiceDates]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: No Attendance Dates"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! New Pages for WorkCertificate 
+! page 039
+!
+[StatE_WorkCertificate]
+Type=Log
+Next=ReturnMenu
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Payment Ino
+!========================================
+[StatE_PaymentInfo]
+type=log
+logmsg="Payment Info"
+
+[PaymentInfo] ! For compatibility 
+type=log
+
+[CheckPaymentInfoAvailable]
+type=branch
+var=Jury_HasPaymentInformation
+0=PlayNoPaymentInfo
+1=CheckPaymentDate
+
+[PlayNoPaymentInfo]
+type=play
+msg="NoPaymentInfo"
+Next=PaymentInfoMenu
+
+[CheckPaymentDate]
+type=branch
+var=Jury_PaymentDate
+""=PlayNotYetAuthorized
+Next=PlayPaymentInfo
+
+[PlayNotYetAuthorized]
+type=play
+msg="NotYetAuthorized"
+Next=PaymentInfoMenu
+
+[PlayPaymentInfo]
+type=play
+msg="PaymentAuthorized"
+msgstring=Jury_PaymentDate%"|D|ddd mmm dd yyyy"
+msg="ForTheAmountOf"
+msgstring=Jury_PaymentAmount%"|M"
+msg="ReceiveCheck"
+
+[PaymentInfoMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+PromptMsg="PaymentInfoMenu"
+PromptMsgDTMF="PaymentInfoMenuDTMF"
+grammar="PaymentInfoMenu"
+!HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:MainMenu=ConstructMainMenu
+OnResult:HearAgain=CheckPaymentInfoAvailable
+OnResult:Agent=SetScreenMsgForPaymentInfo
+OnKey1=ConstructMainMenu
+OnKey0=SetScreenMsgForPaymentInfo
+OnKeyStar=CheckPaymentInfoAvailable
+OnDTMFError=StatE_Sorry
+OnOtherResult=PaymentInfoMenu
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="OK"
+
+[SetScreenMsgForPaymentInfo]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: PAYMENT INFO"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Date Reschedule
+!========================================
+[StatE_DateReschedule]
+type=log
+
+[CheckEligibility]
+type=branch
+var=Jury_IsEligibleToReschedule
+0=NotEligibleToDefer
+Next=GetAvailableDates
+
+[GetAvailableDates]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="GetPostponementDates"
+OnExecuteError=GetPostponementDatesError
+Next=CheckGetDatesResult
+
+[GetPostponementDatesError]
+type=log
+var=Jury_Result
+next=StatE_SystemError
+
+[CheckGetDatesResult]
+type=Branch
+var=Jury_Result
+"Ok"=LogGetDates
+next=StatE_SystemError
+
+[LogGetDates]
+type=log
+var=Jury_PostponementDate1,Jury_PostponementDate2,Jury_PostponementDate3
+
+[SetCountersForRequestDeferral]
+type=ChangeVariable
+RetryCounter=2
+TimeoutRetryCounter=0
+Next=SelectDate
+
+!--------------------------------------------------
+! Not Eligible to Defer
+!--------------------------------------------------
+[NotEligibleToDefer]
+type=log
+logmsg="Not Eligible to Defer"
+
+[PlayNotEligibleMsg]
+type=play
+msg="NotEligibleToDefer"
+
+[NotEligibleToDeferMenu]
+type=menu
+msg="NotEligibleToDeferMenu"
+OnKey8=ConstructMainMenu
+OnKey0=SetScreenMsgForNotEligibleToDefer
+OnKeyStar=NotEligibleToDeferMenu
+OnKeyPound=PlayNotEligibleMsg
+
+[SetScreenMsgForNotEligibleToDefer]
+Type=ChangeVariable
+ScreenMsg="Requested Agent: NOT ELIGIBLE TO DEFER"
+Next=ACDAvailable
+
+!--------------------------------------------------
+! Select Postponement Date
+!--------------------------------------------------
+[SelectDate]
+type=menu
+msg="PleaseSelectDate"
+!msg="PostponeSelect"
+msg="For"
+msgstring=Jury_PostponementDate1%"|D|ddd mmm dd yyyy"
+msg="Press1"
+msg="For"
+msgstring=Jury_PostponementDate2%"|D|ddd mmm dd yyyy"
+msg="Press2"
+msg="For"
+msgstring=Jury_PostponementDate3%"|D|ddd mmm dd yyyy"
+msg="Press3"
+msg="HearAgainMain"
+msg="ToSpeakWithStaffMemberDTMF"
+OnKey1=SetPostponeDate1
+OnKey2=SetPostponeDate2
+OnKey3=SetPostponeDate3
+OnKey0=SetScreenMsgPostponement
+OnKey9=ConstructMainMenu
+OnKeyPound=SelectDate
+OnKeyStar=SelectDate
+
+[SetPostponeDate1]
+type=changeVariable
+Jury_NewReportingDate=Jury_PostponementDate1
+SelectedDate=1
+DateRetryCount=1
+Next=PostponementConfirmation
+
+[SetPostponeDate2]
+type=changeVariable
+Jury_NewReportingDate=Jury_PostponementDate2
+SelectedDate=2
+DateRetryCount=1
+Next=PostponementConfirmation
+
+[SetPostponeDate3]
+type=changeVariable
+Jury_NewReportingDate=Jury_PostponementDate3
+SelectedDate=3
+DateRetryCount=1
+Next=PostponementConfirmation
+
+[SetScreenMsgPostponement]
+type=changeVariable
+ScreenMsg="Transfer: Postponement"
+Next=ACDAvailable
+
+[PostponementConfirmation]
+type=changeVariable
+Jury_TypeCode="PP"
+Jury_ReasonCode="LP"
+
+[RequestPostponement]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="ApplyPostponement"
+!OnExecuteError=StatE_PostponementError
+OnExecuteError=TryAnotherDate
+Next=CheckPostponementResult
+
+[StatE_PostponementError]
+type=log
+var=Jury_Result,Jury_NewReportingDate,Jury_AlternateReportingDate
+Next=StatE_SystemError
+
+[CheckPostponementResult]
+type=Branch
+var=Jury_Result
+"Ok"=StatE_SuccessfulDeferral
+Next=StatE_PostponementError
+
+[StatE_SuccessfulDeferral]
+type=log
+
+[PlaySuccessfulPostponeMessage]
+type=play
+msg="DeferralGranted1"
+msgstring=Jury_NewReportingDate%"|D|ddd mmm dd yyyy"
+msg="DeferralGranted2"
+
+[DeferralGrantedMenu]
+type=menu
+msg="DeferralGrantedMenu"
+OnKey9=Exit
+OnKey0=SetScreenMsgDeferralGranted
+OnKeyStar=PlaySuccessfulPostponeMessage
+
+
+[SetScreenMsgDeferralGranted]
+type=changeVariable
+ScreenMsg="Transfer: Deferral Granted"
+Next=ACDAvailable
+
+!------------------------------------------------
+! 
+[TryAnotherDate]
+type=log
+
+[CheckRetryCount]
+type=branch
+var=DateRetryCount
+1=StatE_PostponementError
+OnAboveRange=StatE_PostponementError
+
+[DeferFailedSorry]
+type=play
+msg="DeferralSorryTryAgain"
+! Sorry we could not defer you to that date. Please try selecting a new date. 
+
+[TrySelectAgain]
+type=play
+msg="PleaseSelectDate"
+
+[CheckSelected1]
+type=branch
+var=SelectedDate
+1=Skip1
+
+[SelectDate1]
+type=play
+msg="For"
+msgstring=Jury_PostponementDate1%"|D|ddd mmm dd yyyy"
+msg="Press1"
+
+[Skip1]
+type=branch
+var=SelectedDate
+2=Skip2
+
+[ForDate2]
+type=play
+msg="For"
+msgstring=Jury_PostponementDate2%"|D|ddd mmm dd yyyy"
+msg="Press2"
+
+[Skip2]
+type=branch
+var=SelectedDate
+3=Skip3
+
+[TrySelectAgain2]
+type=play
+msg="For"
+msgstring=Jury_PostponementDate3%"|D|ddd mmm dd yyyy"
+msg="Press3"
+Next=TrySelectAgainMenu
+
+[Skip3]
+type=log
+
+
+[TrySelectAgainMenu]
+type=menu
+msg="HearAgainMain"
+msg="ToSpeakWithStaffMemberDTMF"
+OnKey1=SetPostponeDate1
+OnKey2=SetPostponeDate2
+OnKey3=SetPostponeDate3
+OnKey0=SetScreenMsgPostponement
+OnKey9=ConstructMainMenu
+OnKeyPound=SelectDate
+OnKeyStar=SelectDate
+
+
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Exemption or Excusal
+!========================================
+[ExemptOrExcuse]   ! page 090
+Type=Play
+Msg="ExemptOrExcuseIntro"
+
+[ExemptOrExcuseMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg="ExemptOrExcuseIntro"
+!IntroMsgDTMF="ExemptOrExcuseIntro"
+PromptMsg="ExemptOrExcuseMenu"
+PromptMsgDTMF="ExemptOrExcuseMenuDTMF"
+grammar="RepeatOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:PreviousMenu=ConstructMainMenu          !8
+OnResult:Agent=SetScreenMsgForExemptOrExcuse !0
+OnResult:Repeat=ExemptOrExcuseMenu           !*  Not really needed, internal to CCS
+OnResult:HearAgain=ExemptOrExcuse                !#
+Onkey1=Excuse
+Onkey2=StatE_Exempt
+Onkey8=ConstructMainMenu
+Onkey0=SetScreenMsgForExemptOrExcuse
+OnkeyStar=ExemptOrExcuseMenu
+OnkeyPound=ExemptOrExcuse
+OnDTMFError=SetScreenMsgForExemptOrExcuseOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForExemptOrExcuseOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: EXCUSE or EXEMPT"
+Next=StatE_Sorry
+
+[SetScreenMsgForExemptOrExcuse]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: EXCUSE or EXEMPT"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[Excuse]   ! page 091 Not Implemented
+type=play
+msg="ExcusalIntro"
+
+[ExcuseMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+PromptMsg="ExcusalMenu"
+PromptMsgDTMF="ExcusalMenuDTMF"
+grammar="Excuses"	
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:Incapacity=Incapacity       !1
+OnResult:Caregiver=Caregiver         !2
+OnResult:PriorService=PriorService   !3
+OnResult:NursingMother=NursingMother !4
+OnResult:Other=SetScreenMsgForExcuse !5
+OnResult:PreviousMenu=ExemptOrExcuse     !8
+OnResult:Agent=SetScreenMsgForExcuse !0
+OnResult:Repeat=ExcuseMenu           !*  Not really needed, internal to CCS
+OnResult:HearAgain=Excuse                !#
+Onkey1=Incapacity
+Onkey2=Caregiver
+Onkey3=PriorService
+Onkey4=NursingMother
+Onkey5=SetScreenMsgForExcuse
+Onkey8=ExemptOrExcuse
+OnKey0=SetScreenMsgForExcuse
+OnkeyStar=ExcuseMenu
+OnkeyPound=Excuse
+OnDTMFError=SetScreenMsgForExcuseOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForExcuseOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: EXCUSE"
+Next=StatE_Sorry
+
+[SetScreenMsgForExcuse]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: EXCUSE"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[Incapacity]   ! page 092
+type=ChangeVariable
+ExcuseExemptType="Incapacity"
+Jury_TypeCode="EX"
+Jury_ReasonCode="PI"
+ScreenMsg="Caller Wants INCAPACITY Excuse"
+
+[IncapacityMessage]
+Type=Play
+Msg="RequirementPhysicalMental"
+
+[StatE_Incapacity]
+type=log
+logmsg="Excuse: Incapacit"
+Next=ExcusalFinishup 
+
+[Caregiver]
+type=ChangeVariable
+ExcuseExemptType="Caregiver"
+Jury_TypeCode="EX"
+Jury_ReasonCode="DD"
+ScreenMsg="Caller Wants CAREGIVER Excuse"
+
+[CaregiverMessage]
+Type=Play
+Msg="RequirementCaregiver"
+
+[StatE_Caregiver]
+type=log
+logmsg="Excuse: Caregiver"
+Next=ExcusalFinishup  
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[PriorService]   ! page 093
+type=ChangeVariable
+ExcuseExemptType="PriorService"
+Jury_TypeCode="EX"
+Jury_ReasonCode="PS"
+ScreenMsg="Caller Wants PRIOR SERVICE Excuse"
+
+[PriorServiceMessage]
+Type=Play
+Msg="RequirementPriorService"
+
+[StatE_PriorService]
+type=log
+logmsg="Excuse: Prior Ser"
+Next=ExcusalFinishup
+
+[NursingMother]
+type=ChangeVariable
+ExcuseExemptType="NursingMother"
+Jury_TypeCode="EX"
+Jury_ReasonCode="NM"
+ScreenMsg="Caller Wants NURSING MOTHER Excuse"
+
+[NursingMotherMessage]
+Type=Play
+Msg="RequirementNursing"
+
+[StatE_NursingMother]
+type=log
+logmsg="Excuse: Nursing M"
+Next=ExcusalFinishup
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[ExcusalFinishup]   ! page 094
+Type=Play
+Msg="ExcusalFinishup"
+
+[ExcusalFinishupMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+IntroMsg="ExcusalAttest"
+IntroMsgDTMF="ExcusalAttest"
+PromptMsg="AttestMenu"
+PromptMsgDTMF="AttestMenuDTMF"
+grammar="YesNoStaff"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ExcuseByTypeReport
+OnKey2=ACDAvailable
+OnKey8=Excuse
+Onkey9=ConstructMainMenu
+OnKey0=ACDAvailable
+OnKeyStar=ExcusalFinishup
+OnResult:Yes=ExcuseByTypeReport     !1
+OnResult:No=ACDAvailable            !2 
+OnResult:PreviousMenu=Excuse            !8
+OnResult:MainMenu=ConstructMainMenu !9
+OnResult:Agent=ACDAvailable         !0
+OnResult:Repeat=ExcusalFinishupMenu !*  Not really needed, internal to CCS
+OnResult:HearAgain=ExcusalFinishupMenu
+OnDtmfError=OnDtmfErrorExcusalFinishup
+OnOtherResult=OnOtherResultExcusalFinishup
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[OnDtmfErrorExcusalFinishup]
+type=Play
+Msg="TryAgainDTMF"
+Next=ExcusalFinishupMenu
+
+[OnOtherResultExcusalFinishup]
+type=play
+msg="TryAgain"
+Next=ExcusalFinishupMenu
+
+[OnDtmfErrorExcusalFinishupShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec17]
+type=EndRecognitionSession
+
+[StatE_DTMF17]
+Type=Log
+LogMsg="Change to DTMF"
+Next=ExcusalFinishupMenu
+
+[ExcuseByTypeReport]
+type=changevariable
+SR_ReportName="ExcuseRequestsByType"
+
+[RunExcuseReport]               
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="AddLine"
+OnExecuteError=LogExcusebyTypeReportFailure
+
+[CheckSRResult]           
+type=branch
+var=SR_Result
+0=UpdateExcusalExempt
+Next=LogExcusebyTypeReportFailure
+
+[LogExcusebyTypeReportFailure]
+type=log
+logmsg="ExemptbyTypeReportFailure JurorID="%Jury_JurorID%", ExcuseExemptType="%ExcuseExemptType
+Next=UpdateExcusalExempt
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_Exempt]   ! page 095 Not Implemented
+type=log
+logmsg="ExemptInfo"
+
+[Exempt]
+type=play
+msg="ExemptInstructions"
+
+[ExemptMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+PromptMsg="ExemptMenu"
+PromptMsgDTMF="ExemptMenuDTMF"
+grammar="LegalExemptions"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:NonResident=StatE_NonResident    !1
+OnResult:Felon=StatE_Felon                !2
+OnResult:Serving=StatE_PriorService2      !3
+OnResult:PeaceOfficer=StatE_PeaceOfficer  !4
+OnResult:Underge=StatE_Underage           !5
+OnResult:NonCitizen=StatE_NonCitizen      !6
+OnResult:Other=SetScreenMsgForOtherExempt !7
+OnResult:PreviousMenu=ExemptOrExcuse          !8
+OnResult:Agent=SetScreenMsgForExempt      !0
+OnResult:Repeat=ExemptMenu                !*  Not really needed, internal to CCS
+OnResult:HearAgain=Exempt                     !#
+Onkey1=StatE_NonResident
+Onkey2=StatE_Felon
+Onkey3=StatE_PriorService2
+Onkey4=StatE_PeaceOfficer
+Onkey5=StatE_Underage
+Onkey6=StatE_NonCitizen
+Onkey7=SetScreenMsgForOtherExempt
+Onkey8=ExemptOrExcuse
+Onkey0=SetScreenMsgForExempt
+OnkeyStar=ExemptMenu
+OnkeyPound=Exempt
+OnDTMFError=SetScreenMsgForExemptOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForExemptOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: Exempt"
+Next=StatE_Sorry
+
+[SetScreenMsgForExempt]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: Exempt"
+Next=ACDAvailable
+
+[SetScreenMsgForOtherExempt]
+Type=ChangeVariable
+ScreenMsg="Caller wants OTHER Exempt"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_NonResident]   ! page 096
+Type=Log
+LogMsg="Exempt: Non Res"
+
+[PlayNonResident]
+Type=Play
+Msg="NonResident"
+
+[NonResident]
+Type=ChangeVariable
+ExcuseExemptType="Non-Resident"
+Jury_TypeCode="DQ"
+Jury_ReasonCode="NR"
+ScreenMsg="Caller Wants NON-RESIDENT Exemption"
+Next=ExemptFinishup
+
+[StatE_Felon]
+Type=Log
+LogMsg="Exempt: Felon"
+
+[PlayFelon]
+Type=Play
+Msg="Felon"
+
+[Felon]
+Type=ChangeVariable
+ExcuseExemptType="Felon"
+Jury_TypeCode="DQ"
+Jury_ReasonCode="FL"
+ScreenMsg="Caller Wants FELON Exemption"
+Next=ExemptFinishup
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_PriorService2]   ! page 097
+Type=Log
+LogMsg="Exempt: Serving"
+
+[PlayServing]
+Type=Play
+Msg="PriorService"
+
+[Serving]
+Type=ChangeVariable
+ExcuseExemptType="PriorService"
+Jury_TypeCode="EX"
+Jury_ReasonCode="PS"
+ScreenMsg="Caller Wants PRIORSERVICE Exemption"
+Next=ExemptFinishup
+
+[StatE_PeaceOfficer]
+Type=Log
+LogMsg="Exempt: Peace"
+
+[PlayPeaceOfficer]
+Type=Play
+Msg="PeaceOfficer1"
+Msg="PeaceOfficer2"
+Msg="PeaceOfficer3"
+Msg="PeaceOfficer4"
+Msg="PeaceOfficer5"
+
+[PeaceOfficer]
+Type=ChangeVariable
+ExcuseExemptType="PeaceOffice"
+Jury_TypeCode="EX"
+Jury_ReasonCode="PO"
+ScreenMsg="Caller Wants PEACEOFFICER Exemption"
+Next=ExemptFinishup
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_Underage]   ! page 098
+Type=Log
+LogMsg="Exempt: Underage"
+
+[PlayUnderage]
+Type=Play
+Msg="Underage"
+
+[Underage]
+Type=ChangeVariable
+ExcuseExemptType="Underage"
+Jury_TypeCode="DQ"
+Jury_ReasonCode="UA"
+ScreenMsg="Caller Wants UNDERAGE Exemption"
+Next=ExemptFinishup
+
+[StatE_NonCitizen]
+Type=Log
+LogMsg="Exempt: Alien"
+
+[PlayNonCitizen]
+Type=Play
+Msg="NonCitizen"
+
+[NonCitizen]
+Type=ChangeVariable
+ExcuseExemptType="NonCitizen"
+Jury_TypeCode="DQ"
+Jury_ReasonCode="NC"
+ScreenMsg="Caller Wants NONCITIZEN Exemption"
+Next=ExemptFinishup
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[ExemptFinishup]   ! page 099
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+IntroMsg="ExemptAttest"
+IntroMsgDTMF="ExemptAttest"
+PromptMsg="AttestMenu"
+PromptMsgDTMF="AttestMenuDTMF"
+grammar="YesNoStaff"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+ShiftToDTMFMsg="Silence"   
+OnKey1=ExemptByTypeReport
+OnKey2=ACDAvailable
+OnKey8=Exempt
+Onkey9=ConstructMainMenu
+OnKey0=ACDAvailable
+OnKeyStar=ExemptFinishup
+OnResult:Yes=ExemptByTypeReport !1
+OnResult:No=ACDAvailable        !2 
+OnResult:PreviousMenu=Exempt        !8
+OnResult:MainMenu=ConstructMainMenu !9
+OnResult:Agent=ACDAvailable     !0
+OnResult:Repeat=ExemptFinishup  !*  Not really needed, internal to CCS
+OnDtmfError=OnDtmfErrorExemptFinishup
+OnOtherResult=OnOtherResultExemptFinishup
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[OnDtmfErrorExemptFinishup]
+type=Play
+Msg="TryAgainDTMF"
+Next=ExemptFinishup
+
+[OnOtherResultExemptFinishup]
+type=play
+msg="TryAgain"
+Next=ExemptFinishup
+
+[OnDtmfErrorExemptFinishupShiftDTMF]
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+[EndRec18]
+type=EndRecognitionSession
+
+[StatE_DTMF18]
+Type=Log
+LogMsg="Change to DTMF"
+Next=ExemptFinishup
+
+[ExemptByTypeReport]
+type=changevariable
+SR_ReportName="ExemptRequestsByType"
+
+[RunExemptReport]               
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="AddLine"
+OnExecuteError=LogExemptbyTypeReportFailure
+
+[CheckSRResult2]           
+type=branch
+var=SR_Result
+0=UpdateExcusalExempt
+Next=LogExemptbyTypeReportFailure
+
+[LogExemptbyTypeReportFailure]
+type=log
+logmsg="ExemptbyTypeReportFailure JurorID="%Jury_JurorID%", ExcuseExemptType="%ExcuseExemptType
+Next=UpdateExcusalExempt
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[UpdateExcusalExempt]   ! page 100
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="Jury_ServiceEnd"
+OnExecuteError=StatE_SystemError
+
+[LogGetJurorExcusalExemptResult]
+type=log
+logmsg="Jury_Result="%Jury_Result
+
+[CheckExcusalExemptRetrieveResult]
+Type=Branch
+Var=Jury_Result
+"Ok"=StatE_Update
+Next=StatE_SystemError
+
+[StatE_Update]
+Type=Log
+LogMsg="Record Updated"
+Next=ReturnMenu
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!Return Menu
+!========================================
+[ReturnMenu]   ! page 053
+Type=Branch
+Var=AssistanceAvailable
+0=ReturnMenuClosed
+Next=ReturnMenuOpen
+
+[ReturnMenuOpen]   ! page 120
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="ReturnMenu"
+PromptMsgDTMF="ReturnMenuDTMF"
+grammar="ReturnOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:MainMenu=ConstructMainMenu      !1
+OnResult:Information=StatE_FAQs         !2
+OnResult:Agent=SetScreenMsgForReturnMenu !0
+OnResult:Repeat=ReturnMenuOpen
+Onkey1=ConstructMainMenu
+Onkey2=StatE_FAQs
+Onkey0=SetScreenMsgForReturnMenu
+OnkeyStar=ReturnMenuOpen
+OnDTMFError=SetScreenMsgForReturnMenuOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForReturnMenuOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: RETURN MENU"
+Next=StatE_Sorry
+
+[SetScreenMsgForReturnMenu]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: RETURN MENU"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[ReturnMenuClosed]   ! page 054
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="ReturnMenuClosed"
+PromptMsgDTMF="ReturnMenuClosedDTMF"
+grammar="ReturnOrMain"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnResult:MainMenu=ConstructMainMenu !1
+OnResult:Information=StatE_FAQs    !2
+OnResult:Return=ReturnMenuClosed
+OnResult:Repeat=ReturnMenuClosed
+Onkey1=ConstructMainMenu
+Onkey2=StatE_FAQs
+OnkeyStar=ReturnMenuClosed
+OnDTMFError=StatE_Sorry
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!FAQs
+!========================================
+[StatE_FAQs]   ! page 056
+Type=Log
+LogMsg="FAQs"
+
+[FAQsAgain]
+Type=Play
+Msg="FAQIntro"
+
+[CheckAssistanceAvailableForFAQs]
+Type=Branch
+Var=AssistanceAvailable
+0=SetMenuOption0aForFAQs
+
+[SetMenuOption0ForFAQs]
+Type=ChangeVariable
+@PlayOption0=1
+Next=FAQsMenu
+
+[SetMenuOption0aForFAQs]
+Type=ChangeVariable
+@PlayOption0=0
+
+[FAQsMenu]   ! page 056
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="FAQMainMenu"
+PromptMsgDTMF="FAQMainMenuDTMF"
+grammar="FAQs"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+Onkey1=FAQ1
+Onkey2=FAQ2
+Onkey3=FAQ3
+Onkey4=FAQ4
+Onkey5=FAQ5
+OnKey6=FAQ6
+OnKey7=FAQ7
+Onkey9=ConstructMainMenu
+Onkey0=SetScreenMsgForFAQsMenu
+OnkeyStar=FAQsMenu
+OnkeyPound=FAQsAgain
+OnDTMFError=SetScreenMsgForFAQsMenuOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[SetScreenMsgForFAQsMenuOnError]
+Type=ChangeVariable
+ScreenMsg="Problem: FAQ MENU"
+Next=StatE_Sorry
+
+[SetScreenMsgForFAQsMenu]
+Type=ChangeVariable
+ScreenMsg="Requested Staff: FAQ MENU"
+Next=ACDAvailable
+
+[FAQ1]
+type=changeVariable
+FAQMessage="FAQGeneralInfo"
+Next=PlayFAQMessage
+
+[FAQ2]
+type=changeVariable
+FAQMessage="FAQExcusals"
+Next=PlayFAQMessage
+
+[FAQ3]
+type=changeVariable
+FAQMessage="FAQHoursOfOperation"
+Next=PlayFAQMessage
+
+[FAQ4]
+type=changeVariable
+FAQMessage="FAQParking"
+Next=PlayFAQMessage
+
+[FAQ5]
+type=changeVariable
+FAQMessage="FAQFTA"
+Next=PlayFAQMessage
+
+[FAQ6]
+type=changeVariable
+FAQMessage="FAQDressCode"
+Next=PlayFAQMessage
+
+[FAQ7]
+type=changeVariable
+FAQMessage="FAQSecurity"
+Next=PlayFAQMessage
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[PlayFAQMessage]
+Type=Log
+LogMsg="FAQMessage = "%FAQMessage
+
+[PlayMessage]
+type=play
+msg=FAQMessage
+
+[FAQMenu]
+type=Recognize
+NoInputTimeOutMSec=10000
+!RecognizerFailureMsg="SpeechRecSystemError"
+!IntroMsg=""
+!IntroMsgDTMF=""
+PromptMsg="FAQSubmenu"
+PromptMsgDTMF="FAQSubmenuDTMF"
+grammar="TransportMenu"
+HelpMsg="StandardHelp"
+MisrecognizeMsg="TryAgain"
+!TimeoutMsgDTMF="TryAgainDTMF"
+ShiftToDTMFMsg="ShiftToDTMF"
+OnOtherResult=FAQInvalidResponse
+Onkey7=FAQsMenu
+Onkey8=ConstructMainMenu
+Onkey9=EndCall
+Onkey0=SetScreenMsgForFAQMenu
+OnkeyPound=PlayMessage
+OnKeyStar=FAQMenu
+OnDTMFError=SetScreenMsgForFAQOnError
+BadKeyMsg="InvalidSelection"
+MaxRetryCount=2
+!TimeoutMsg="Timeout"
+!TimeoutMsgDTMF="TimeoutDTMF"
+ConfidenceThreshold=30
+SuccessMsg="SuccessMsg"
+
+[FAQInvalidResponse]
+type=play
+msg="TryAgain"
+Next=FAQMenu
+
+[SetScreenMsgForFAQOnError]
+Type=ChangeVariable
+ScreenMsg="Problem:"%FAQMessage
+Next=StatE_Sorry
+
+[SetScreenMsgForFAQMenu]
+Type=ChangeVariable
+ScreenMsg="Requested Staff:"%FAQMessage
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!=================================
+! Admin Function
+!=================================
+[StatE_Admin]   ! page 140
+type=log
+logmsg="Admin"
+
+[AdminFunctions]
+type=GetDigits
+Var=EnteredRecordPassword
+msg="Silence"
+MinDigits=4
+MaxDigits=4
+Terminator=""
+MaxTimeouts=0
+TimeoutSec=6
+OnMaxTimeouts=Goodbye
+OnKeyPound=Goodbye
+OnKeyStar=Goodbye
+
+[CompareAdminPassword]
+type=branch
+var=EnteredRecordPassword
+RecordPassword=StatE_RecordPhrase
+"2222"=SetTestMode
+Next=Goodbye
+
+!-------------------------------
+! Test mode gets time variables from VM
+[SetTestMode]
+type=changevariable
+WindowTestMode=1
+
+[PlayTestMode]
+type=Play
+msg="TestMode"
+Next=LanguageCheck
+
+!--------------------------------------------
+! Test date time plays
+[TestTime]
+type=changevariable
+Jury_GroupReportingDate="Fri Apr 30 08:00:00 2024"
+Jury_GroupReportingCallbackTime="Sat Dec 30 18:00:00 1899"
+
+[PlayTestTimes]
+type=Play
+msg="PleaseCallback2"
+MsgString=Jury_GroupReportingDate%"|D|ddd mmm dd yyyy"
+msg="After"
+msgstring=Jury_GroupReportingCallbackTime%"|D|h:n a/p"
+msg="Callback2"
+Next=Exit
+
+[TestTTS]
+type=ChangeVariable
+Jury_ServiceDates="11/23/2010"
+
+[TestTTS2]
+type=play
+ttsstring=Jury_ServiceDates
+
+[TestTTS3]
+type=ChangeVariable
+Jury_ServiceDates="11/23/2010,11/24/2010"
+
+[TestTTS4]
+type=play
+ttsstring=Jury_ServiceDates
+Next=Goodbye
+
+
+
+[StatE_RecordPhrase]
+Type=Log
+LogMsg="Admin: Record"
+
+[SetRetryCounter]
+Type=ChangeVariable
+RetryCounter=3
+
+[RecordSelectMenu]
+type=menu
+msg="RecordMenuOptionalGreeting"
+BadKeyMsg="TryAgainDTMF"
+MaxBadKeys=3
+OnKey1=RecordOptionalGreeting
+OnKey2=JuryRecordPhrase
+OnKeyPound=BumpRetryCounter
+OnKeyStar=BumpRetryCounter
+Next=Goodbye
+
+[BumpRetryCounter]
+Type=ChangeVariable
+decrement=RetryCounter
+
+[CheckRetryCounter2]
+Type=Branch
+Var=RetryCounter
+0=Goodbye
+Next=RecordSelectMenu
+
+[RecordOptionalGreeting]
+Type=ChangeVariable
+PhraseToRecord="OptionalGreeting"
+Next=SetOptionalGreetingRecordPath
+
+[SetOptionalGreetingRecordPath]
+type=setglobals
+!RecordFilePath="D:\Sonant\Voicefiles\Jury\English\"
+Next=JuryRecordPhrase
+
+[JuryRecordLanguage]
+type=menu
+msg="RecordMenuSelectLanguage"
+BadKeyMsg="TryAgainDTMF"
+MaxBadKeys=3
+!OnMaxBadKeys=Goodbye
+OnKey1=SetRecordLanguageEnglish
+OnKey2=SetRecordLanguageSpanish
+OnKey3=SetRecordLanguageCantonese
+OnKeyPound=JuryRecordLanguage
+OnKeyStar=JuryRecordLanguage
+Next=Goodbye
+
+[SetRecordLanguageEnglish]
+type=setglobals
+!RecordFilePath="D:\Sonant\Voicefiles\English\"
+Next=JuryRecordPhrase
+
+[SetRecordLanguageSpanish]
+type=setglobals
+!RecordFilePath="D:\Sonant\Voicefiles\Spanish\"
+Next=JuryRecordPhrase
+
+[SetRecordLanguageCantonese]
+type=setglobals
+!RecordFilePath="D:\Sonant\Voicefiles\Spanish\"
+Next=JuryRecordPhrase
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[JuryRecordPhrase]   ! page 141
+Type=ChangeVariable
+RetryCounter=3
+
+[JuryRecordPhraseMenu]
+type=menu
+msg="RecordMenu"
+BadKeyMsg="TryAgainDTMF"
+MaxBadKeys=3
+!OnMaxBadKeys=Goodbye
+OnKey1=RecordPhraseToRecord
+OnKey2=PlayPhraseToRecord
+OnKey3=JuryRecordLanguage
+OnKey4=Goodbye
+OnKeyPound=DecrementRetryCounter
+OnKeyStar=DecrementRetryCounter
+Next=Goodbye
+
+[DecrementRetryCounter]
+Type=ChangeVariable
+decrement=RetryCounter
+
+[CheckRetryCounter3]
+Type=Branch
+Var=RetryCounter
+0=Goodbye
+Next=JuryRecordPhraseMenu
+
+[RecordPhraseToRecord]
+type=Record
+msg="RecordPrompt"
+!Terminator="#"
+FlushKeys=True
+PlayBeep=True
+MaxRecordingSec=300
+!VoxTimeoutSec=5
+WaitForMsg=True
+FileName=PhraseToRecord
+Next=JuryRecordPhrase
+
+[PlayPhraseToRecord]
+type=play
+msg=PhraseToRecord
+Next=JuryRecordPhrase
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_DisabledCCC]
+type=log
+logmsg="Disabled CCC"
+
+[SetDisabledCCC]
+type=changevariable
+templocation="Jury"
+ScreenMsg="Disabled - Caller For Civil"
+Next=ACDAvailable
+
+[StatE_DisabledHOJ]
+type=log
+logmsg="Disabled HOJ"
+
+[SetDisabledHOJ]
+type=changevariable
+templocation="Jury"
+ScreenMsg="Disabled - Caller For Criminal"
+Next=ACDAvailable
+
+[ACDAvailable]     !p. 69
+Type=log
+Var=JurorID,JurorPassword,JurorStatusEnum,ReportingStatus,ReportingDate,ScreenMsg
+
+[GetAssistanceAvailableVar]
+type=VariableManager
+VarList="AssistanceAvailable"
+OnError=LogACDAvailableVMFailure
+
+[CheckAssistanceAvailableForOperator]
+Type=Branch
+Var=AssistanceAvailable
+0=NoOperator
+1=PleaseHold
+Next=LogACDAvailableVMFailure
+
+[NoOperator]
+type=Play
+msg="NoOperatorAvailable"
+msg="AssistanceHours"
+msgstring=OperatorOpen%"|D|h:n a/p"
+msg="To"
+msgstring=OperatorClosed%"|D|h:n a/p"
+msg="MondayThruFriday"
+Next=Exit
+
+[LogACDAvailableVMFailure]
+type=log
+logmsg="ACD Var Man Failure"
+
+[PleaseHold]
+type=play
+msg="PleaseHoldMsg"
+WaitForMsg=True
+
+[CheckForJID]
+type=Branch
+Var=Jury_JurorID
+0=StatE_ACDNoJID
+""=StatE_ACDNoJID
+"Unknown"=StatE_ACDNoJID
+Next=StatE_ACD
+
+[StatE_ACDNoJID]
+type=log
+logmsg="Route to ACD NoJID"
+Next=SetAcdCallReference
+
+[StatE_ACD]
+type=log
+logmsg="Route to ACD"
+
+[SetAcdCallReference]
+type=ChangeVariable
+@CallReference="AcdCall"
+
+[acdlog]
+type=log
+var=screenpopapn
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller.  Note that this block never
+!  falls through and executes the Next block.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RouteCaller]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+OnError=AcdRouteError
+OnAgentConnecting=AcdAgentConnecting
+OnAgentConnected=AcdAgentConnected
+OnCallReturn=CallReturnFromAcd
+OnTimeout=RouteTimeout
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call Enters Queue
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[ACDWait1]
+!Needed to know if going into queue or not
+type=pause
+pausesec=1
+
+[LogACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[CheckCaller]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdRouteError
+OnTimeout=RouteTimeout
+
+[LogCheckACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[QueuePosition]
+type=branch
+var=@AcdPositionInQueue
+0=YouAreNext
+1=CurrentlyOne
+OnBelowRange=YouAreNext
+OnAboveRange=QueuePositionCheckForBad      !PlayQueuePosition
+
+[YouAreNext]
+type=play
+msg="NextInQueue"
+Next=ACDInQueue
+
+[CurrentlyOne]
+type=play
+msg="CurrentlyOne"
+Next=ACDInQueue
+
+[QueuePositionCheckForBad]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=PlayQueuePosition
+OnAboveRange=AcdError
+Next=AcdError
+
+[PlayQueuePosition]
+type=play
+msg="Currently"
+msgstring=@AcdPositionInQueue%"|N"
+msg="CallersAhead"
+
+[ACDInQueue]
+type=Play
+msg="$MusicOnHold1"
+msg="Silence"
+msg="$MusicOnHold2"
+msg="Silence"
+msg="$MusicOnHold3"
+msg="Silence"
+msg="$MusicOnHold4"
+msg="Silence"
+! Silence is placehold for on hold messages
+WaitForMsg=TRUE
+Next=CheckCaller
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Call is connecting to ACD Agent.  Play ring. 
+!     Queue 4 rings (4X6 sec) to limit logging.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnecting]
+type=Play
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+WaitForMsg=TRUE
+Next=AcdAgentConnecting
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call is connected to ACD Agent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnected]
+type=Pause
+PauseSec=60
+next=AcdAgentConnected
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call has returned from ACD 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnFromAcd]
+type=Branch
+var=@AcdRouteCode
+1=CallReturnErrorRoute
+2=CallReturnDefaultRoute
+3=QueueShutdown
+4=QueueFull
+5=EndCall	
+6=CallReturnAgentTransfer	
+7=CallReturnReleaseKeyPressed
+8=CallReturnConferenceConnected
+9=CallReturnAgentAwol
+11=StatE_ReturnForRegistration
+12=StatE_EnglishToSpanishRoute
+OnBelowRange=AcdError
+OnAboveRange=AcdError
+Next=AcdError
+
+[CallReturnErrorRoute]
+type=Log
+LogMsg="Error Route"
+Next=CheckIfLoggedIn
+
+[CallReturnDefaultRoute]
+type=Log
+LogMsg="DefaultRoute"
+Next=CheckIfLoggedIn
+
+[QueueShutdown]
+type=Branch
+var=ACD_RouteName
+"Spanish"=RouteToSpanishVMLog
+
+[PlayQueueShutdown]
+type=Play
+msg="QueueShutdown"
+
+[StatE_QueueShutdown]
+type=log
+logmsg="Queue Shutdown"
+Next=CheckIfLoggedIn
+
+[QueueFull]
+Type=Play
+msg="QueueFull"
+
+[StatE_QueueFull]
+type=log
+logmsg="QueueFull"
+Next=CheckIfLoggedIn          !Our offices are open, however there are too many callers currently waiting for operators. If you require operator assistance please call again later. The least busy time of the week to retry your call is from 1:30 to 3:30 on Tuesdays, Wednesdays, and Thursdays. Otherwise please choose from the following options.
+
+[CallReturnAgentTransfer]
+type=log
+logmsg=ACD_Agent
+next=ACDInQueue
+	
+[CallReturnReleaseKeyPressed]
+type=log
+logmsg="Release Key Pressed"
+
+[AgentPressedRelease]
+type=Pause
+PauseSec=60
+Next=AgentPressedRelease
+
+[CallReturnConferenceConnected]
+type=Log
+LogMsg="ConferenceConnected"
+next=Exit
+
+[RouteTimeout]
+type=Play
+msg="AcdTimeout"
+next=Exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Return Routes
+!  
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[StatE_ReturnForRegistration]
+type=log
+logmsg="Return4Registration"
+
+[ResetVarsForRegistration]
+type=changeVariable
+GetReportingInstructions=0
+
+! No juror id, send caller to get juror ID
+[CheckIfJurorIDSet]
+type=branch
+var=Jury_JurorID
+"UNKNOWN"=GetJurorID
+""=GetJurorID
+Next=ReturnRefreshJurorInfo
+
+[ReturnRefreshJurorInfo]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="GetJuror"
+OnExecuteError=LogReturnCallerExecuteError
+Next=GroupReportingInstructions
+
+[LogReturnCallerExecuteError]
+type=log
+var=@Result,@ResultMessage,ResultCode,ErrorMessage
+Next=StatE_SystemError
+
+[StatE_EnglishToSpanishRoute]
+type=log
+logmsg="Eng_To_Spanish"
+
+[SetRouteToSpanish]
+type=SetGlobals
+Language="English"  !!no spanish folder!!
+
+[SetRouteVarSpanish]
+type=changeVariable
+CallerLanguage="English"  !!no spanish folder!!
+ACD_RouteName="Spanish"
+Next=SetAcdCallReference
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller after AWOL
+!  Uses Urgent priority.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnAgentAwol]
+type=log
+logmsg="AWOL"
+
+[RouteCallerAfterAwol]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+Priority="Urgent"
+OnError=AcdRouteError
+next=PauseAfterAWOL
+
+[PauseAfterAWOL]
+type=Pause
+PauseSec=1
+
+[CheckCallerAfterAWOL]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdError
+OnTimeout=AcdError
+
+[QueuePositionAfterAwol]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=ACDInQueue
+OnAboveRange=AcdError
+Next=AcdError
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Agent Routes
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+[AcdRouteError]
+type=Branch
+var=ACD_RouteName
+"Spanish"=RouteToSpanishVMLog
+
+[PlayRouteError]
+type=Play
+FlushPlayQueue=True
+Msg="QueueShutdown"
+Next=CheckLoopingError
+
+[AcdError]
+type=Play
+FlushPlayQueue=True
+msg="SystemProblem"
+WaitForMsg=TRUE
+Next=Exit
+
+[CheckLoopingError]
+type=branch
+var=ErrorCounter
+1=Exit
+OnAboveRange=Exit
+Next=CheckIfLoggedIn
+
+[CheckIfLoggedIn]
+type=branch
+var=JurorLoggedIn
+0=MainMenu
+1=MainMenu
+Next=StatE_Sorry
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Agent Route to Spanish VM
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+
+[RouteToSpanishVMLog]
+type=log
+logmsg="RT to Spanish VM"
+LogType=ScriptEvent
+
+[RouteToSpanishVM]
+type=ChangeVariable
+Extension=2099925371
+! Maria's direct line
+Next=TransferPleaseHold
+
+[TransferPleaseHold]
+type=log
+logmsg="Extension = "%Extension
+
+[TransferPleaseHold2]
+type=play
+msg="PleaseHoldExtensionTransfer"
+WaitForMsg=True
+
+[TransferAttempt]
+type=log
+logmsg="Xfer Attempts"
+LogType=ScriptEvent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[PlaySilenceToPauseForHangup]
+type=play
+msg="Silence"
+WaitForMsg=True
+
+[BridgeTransferHold]
+type=CallControl
+Command=Hold
+PartyName="Inbound"
+ResultVar="HoldResult"
+OnError=BTLogCallControlHoldError
+Next=LogBTPhoneNumber
+
+[BTLogCallControlHoldError]
+type=Log
+Logmsg="HoldResult = "%HoldResult
+Next=BTError
+
+[LogBTPhoneNumber]
+type=Log
+Logmsg="TransferPhoneNumber = "%Extension
+
+[BTCall]
+type=Call
+DestinationNumber=Extension
+OriginationNumber="2096456053"
+PartyName="GeneralTransfer"
+CallResultVar="CallResult"
+OnCallError=LogCallBTError
+Next=BTPauseBeforePutSecondCallOnHold
+
+[LogCallBTError]
+type=Log
+Logmsg="CallResult = "%CallResult
+Next=BTError
+
+[BTPauseBeforePutSecondCallOnHold]
+type=Pause
+PauseMSec=500
+
+[BTTakeCallOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=LogCallControlHoldError
+
+[BTStopOnHoldPlay]
+type=play
+flushplayqueue=true
+
+[BTBridgeCalls]
+type=CallControl
+Command=Bridge
+OnError=LogCallControlBridgeTransferError
+Next=HangupCall
+
+[LogCallControlBridgeTransferError]
+type=Log
+Logmsg="CallControlBridgeError"
+Next=BTErrorOffHold
+
+[BTErrorOffHold]
+type=CallControl
+Command=OffHold
+PartyName="Inbound"
+OnError=LogCallControlHoldError
+Next=BTError
+
+[LogCallControlHoldError]
+type=log
+logmsg="HoldError"
+
+[BTError]
+type=Play
+FlushPlayQueue=True
+Next=SystemError
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!========================================
+!End Plays & Routines
+!========================================
+[StatE_Sorry]   ! page 070
+type=log
+logmsg="Too Many Errors"
+
+[SetScreenMsgForSorry]
+Type=ChangeVariable
+ScreenMsg="Problem: Caller made too many errors"
+
+[PlaySorry]
+type=play
+msg="WeAreSorry"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[StatE_SystemError]   ! page 070
+type=log
+logmsg="System Error"
+
+[SetScreenMsgForSystemError]
+Type=ChangeVariable
+ScreenMsg="Problem: System Error"
+
+[SystemError]
+type=play
+msg="SystemProblem"
+Next=ACDAvailable
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!===================================
+! End Routines
+!===================================
+[Exit]
+type=play
+msg="ThankYou"
+WaitForMsg=True
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=True
+Next=HangupCall
+
+[EndCall]
+type=changevariable
+ACD_AgentData=Jury_JurorID%","%Jury_Name
+
+[checkaccessjsi]
+type=branch
+var=AccessJSI
+0=EndCallRec
+
+[DisconnectJSIPort]
+Type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="Jury_Disconnect"
+OnExecuteError=EndCallRec
+
+[EndCallRec]
+type=EndRecognitionSession
+
+[HangupCall]
+type=CallControl
+Command=Disconnect
+
+[TerminateCall]
+type=Terminate
+
+!!End Of Script Nothing Goes Below This

@@ -1,0 +1,208 @@
+[ScriptSetup]
+type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"	!deprecated
+Language="English"
+MaxCallSec=2000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallErrors
+OnCallDisconnect=CallDisconnectHandler
+!OnMissingMsg=ThankYouGoodbyeExit
+OnScriptError=ExitOnScriptError
+AllowOnDisconnect=True
+!OnDtmfA=IgnoreBlock	!not in scripting guide
+LogTrace=True
+
+!========================================
+! Set System Defaults
+!========================================
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=FALSE
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=MenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=MenuError
+DefaultOnMaxBadValues=MenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+[CreateJsiVars]
+type=DefineVars
+JsiBaseUrl="https://jury-svc-prod.sjcourts.org/jp_access/ws/jury"
+GetJurorInfoEndpoint="/get_juror"
+JurorId=""
+JsiApiKey=""
+
+[UpdateJsiVars]
+type=ChangeVariable
+GetJurorInfoEndpoint=JsiBaseUrl%GetJurorInfoEndpoint
+
+[SetJsiTestVars]
+type=ChangeVariable
+JurorId="1234567"
+
+[SetJsiUrl]
+type=ChangeVariable
+GetJurorInfoEndpoint=GetJurorInfoEndpoint%"/"%JurorId%"?api_key="%JsiApiKey
+
+[LogJsiGetJurorUrl]
+type=Log
+var=GetJurorInfoEndpoint
+Next=JsiGetJuror
+
+[JsiGetJuror]
+type=RestApi
+Method=GET
+url=GetJurorInfoEndpoint
+RequestScript="""
+return "";
+"""
+ResponseScript="""
+using System.Text.Json;
+var root = JsonDocument.Parse(response).RootElement;
+
+vars["code"]    = root.TryGetProperty("code",    out var v) ? v.GetString() ?? "" : "";
+vars["message"] = root.TryGetProperty("message", out v)     ? v.GetString() ?? "" : "";
+
+if (vars["code"] == "200")
+{
+    if (root.TryGetProperty("content", out var content))
+    {
+        vars["personId"]            = content.TryGetProperty("personId",            out v) ? v.GetString() ?? "" : "";
+        vars["badgeNumber"]         = content.TryGetProperty("badgeNumber",         out v) ? v.GetInt32().ToString() : "";
+        vars["lastName"]            = content.TryGetProperty("lastName",            out v) ? v.GetString() ?? "" : "";
+        vars["firstName"]           = content.TryGetProperty("firstName",           out v) ? v.GetString() ?? "" : "";
+        vars["middleName"]          = content.TryGetProperty("middleName",          out v) ? v.GetString() ?? "" : "";
+        vars["nameSuffix"]          = content.TryGetProperty("nameSuffix",          out v) ? v.GetString() ?? "" : "";
+        vars["mailAddress1"]        = content.TryGetProperty("mailAddress1",        out v) ? v.GetString() ?? "" : "";
+        vars["mailAddress2"]        = content.TryGetProperty("mailAddress2",        out v) ? v.GetString() ?? "" : "";
+        vars["mailCity"]            = content.TryGetProperty("mailCity",            out v) ? v.GetString() ?? "" : "";
+        vars["mailState"]           = content.TryGetProperty("mailState",           out v) ? v.GetString() ?? "" : "";
+        vars["mailZip"]             = content.TryGetProperty("mailZip",             out v) ? v.GetString() ?? "" : "";
+        vars["resiAddress1"]        = content.TryGetProperty("resiAddress1",        out v) ? v.GetString() ?? "" : "";
+        vars["resiAddress2"]        = content.TryGetProperty("resiAddress2",        out v) ? v.GetString() ?? "" : "";
+        vars["resiCity"]            = content.TryGetProperty("resiCity",            out v) ? v.GetString() ?? "" : "";
+        vars["resiState"]           = content.TryGetProperty("resiState",           out v) ? v.GetString() ?? "" : "";
+        vars["resiZip"]             = content.TryGetProperty("resiZip",             out v) ? v.GetString() ?? "" : "";
+        vars["driverSid"]           = content.TryGetProperty("driverSid",           out v) ? v.GetString() ?? "" : "";
+        vars["dob"]                 = content.TryGetProperty("dob",                 out v) ? v.GetInt32().ToString() : "";
+        vars["filler2"]             = content.TryGetProperty("filler2",             out v) ? v.GetString() ?? "" : "";
+        vars["jurorStatusInd"]      = content.TryGetProperty("jurorStatusInd",      out v) ? v.GetString() ?? "" : "";
+        vars["statusDesc"]          = content.TryGetProperty("statusDesc",          out v) ? v.GetString() ?? "" : "";
+        vars["reportingGroup"]      = content.TryGetProperty("reportingGroup",      out v) ? v.GetInt32().ToString() : "";
+        vars["reportingDate"]       = content.TryGetProperty("reportingDate",       out v) ? v.GetInt32().ToString() : "";
+        vars["reportingLocationId"] = content.TryGetProperty("reportingLocationId", out v) ? v.GetString() ?? "" : "";
+        vars["reportingLocation"]   = content.TryGetProperty("reportingLocation",   out v) ? v.GetString() ?? "" : "";
+        vars["schgcnt"]             = content.TryGetProperty("schgcnt",             out v) ? v.GetInt32().ToString() : "";
+        vars["scheduleChange"]      = content.TryGetProperty("scheduleChange",      out v) ? v.GetString() ?? "" : "";
+        vars["serviceEnd"]          = content.TryGetProperty("serviceEnd",          out v) ? v.GetString() ?? "" : "";
+        vars["attendance"]          = content.TryGetProperty("attendance",          out v) ? v.GetString() ?? "" : "";
+        vars["informationChg"]      = content.TryGetProperty("informationChg",      out v) ? v.GetString() ?? "" : "";
+        vars["qualification"]       = content.TryGetProperty("qualification",       out v) ? v.GetString() ?? "" : "";
+        vars["firstPossibleDate"]   = content.TryGetProperty("firstPossibleDate",   out v) ? v.GetInt32().ToString() : "";
+        vars["lastPossibleDate"]    = content.TryGetProperty("lastPossibleDate",    out v) ? v.GetInt32().ToString() : "";
+        vars["payDate"]             = content.TryGetProperty("payDate",             out v) ? v.GetInt32().ToString() : "";
+        vars["payAmt"]              = content.TryGetProperty("payAmt",              out v) ? v.GetString() ?? "" : "";
+        vars["summonsDate"]         = content.TryGetProperty("summonsDate",         out v) ? v.GetInt32().ToString() : "";
+        vars["dola"]                = content.TryGetProperty("dola",                out v) ? v.GetInt32().ToString() : "";
+        vars["caseId"]              = content.TryGetProperty("caseId",              out v) ? v.GetString() ?? "" : "";
+        vars["panelId"]             = content.TryGetProperty("panelId",             out v) ? v.GetInt32().ToString() : "";
+        vars["lactEvent"]           = content.TryGetProperty("lactEvent",           out v) ? v.GetString() ?? "" : "";
+        vars["lactType"]            = content.TryGetProperty("lactType",            out v) ? v.GetString() ?? "" : "";
+        vars["lactReason"]          = content.TryGetProperty("lactReason",          out v) ? v.GetString() ?? "" : "";
+        vars["lactNoticeType"]      = content.TryGetProperty("lactNoticeType",      out v) ? v.GetString() ?? "" : "";
+        vars["lactNoticeStatus"]    = content.TryGetProperty("lactNoticeStatus",    out v) ? v.GetString() ?? "" : "";
+        vars["lastAffRtnDate"]      = content.TryGetProperty("lastAffRtnDate",      out v) ? v.GetString() ?? "" : "";
+        vars["juryTermId"]          = content.TryGetProperty("juryTermId",          out v) ? v.GetString() ?? "" : "";
+        vars["locTodayDate"]        = content.TryGetProperty("locTodayDate",        out v) ? v.GetInt32().ToString() : "";
+        vars["confirmInd"]          = content.TryGetProperty("confirmInd",          out v) ? v.GetString() ?? "" : "";
+        vars["tstepqualify"]        = content.TryGetProperty("tstepqualify",        out v) ? v.GetString() ?? "" : "";
+        vars["ftacount"]            = content.TryGetProperty("ftacount",            out v) ? v.GetInt32().ToString() : "";
+        vars["delinqsts"]           = content.TryGetProperty("delinqsts",           out v) ? v.GetInt32().ToString() : "";
+        vars["lastActivityDate"]    = content.TryGetProperty("lastActivityDate",    out v) ? v.GetInt32().ToString() : "";
+        vars["jurorType"]           = content.TryGetProperty("jurorType",           out v) ? v.GetInt32().ToString() : "";
+        vars["formClasses"]         = content.TryGetProperty("formClasses",         out v) ? v.GetInt32().ToString() : "";
+        vars["jrinInd"]             = content.TryGetProperty("jrinInd",             out v) ? v.GetString() ?? "" : "";
+        vars["enotifyStatus"]       = content.TryGetProperty("enotifyStatus",       out v) ? v.GetInt32().ToString() : "";
+        vars["filler1"]             = content.TryGetProperty("filler1",             out v) ? v.GetString() ?? "" : "";
+        vars["pendingUpdate"]       = content.TryGetProperty("pendingUpdate",       out v) ? v.GetRawText() : "";
+    }
+
+    if (root.TryGetProperty("extInfos", out var extInfos))
+    {
+        vars["pin"] = extInfos.TryGetProperty("pin", out v) ? v.GetString() ?? "" : "";
+    }
+}
+"""
+StatusCodeVar=JsiHttpStatus
+SuccessVar=JsiSuccess
+ErrorVar=JsiError
+OnError=JsiGetJurorError
+Next=JsiGetJurorDone
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	TestComplete
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[TestComplete]
+type=Log
+
+[ThankYouGoodbyeExit]
+type=play
+msg="Thankyou"
+
+[Goodbye]
+type=play
+msg="Goodbye"
+WaitForMsg=TRUE
+Next=EndCall
+
+[MenuError]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallSec]
+type=log
+next=Goodbye
+
+[ExitOnMaxCallErrors]
+type=log
+next=Goodbye
+
+[ExitOnScriptError]
+type=log
+next=Goodbye
+
+[EndCallWithDisconnectHandler]                                 
+type=SetGlobals
+AllowOnDisconnect=False
+next=EndCall
+
+[CallDisconnectHandler]
+type=Log
+
+! Disable OnDisconnect
+[EndCall]
+type=SetGlobals
+AllowOnDisconnect=False
+
+! Branch here to end call with the disconnect handler
+[EndCall2]                                 
+type=CallControl
+Command=Disconnect
+
+[FinalBlock]
+type=Terminate
+LogMsg="Terminating ..."
+
+[FinalFinalBlock]
+type=Terminate
