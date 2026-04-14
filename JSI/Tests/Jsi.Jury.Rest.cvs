@@ -1,6 +1,5 @@
 [ScriptSetup]
 type=SetGlobals
-TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"	!deprecated
 Language="English"
 MaxCallSec=2000
 OnMaxCallSec=ExitOnMaxCallSec
@@ -35,12 +34,80 @@ DefaultLogGetDigits=True
 DefaultLogPlay=True
 DefaultTerminator=""
 
+[DefineVars]
+type=DefineVars
+ApiSuccess=""
+ApiError=""
+JsiHttpStatus=""
+JsiError=""
+
 [CreateJsiVars]
 type=DefineVars
-JsiBaseUrl="https://jury-svc-prod.sjcourts.org/jp_access/ws/jury"
+!JsiBaseUrl="https://jury-svc-prod.sjcourts.org/jp_access/ws/jury"
+JsiBaseUrl="https://jury-svc-test.sjcourts.org/jp_access/ws/jury"
 GetJurorInfoEndpoint="/get_juror"
 JurorId=""
-JsiApiKey=""
+JsiApiKey="keySJQ439!"
+code=""
+message=""
+personId=""
+badgeNumber=""
+lastName=""
+firstName=""
+middleName=""
+nameSuffix=""
+mailAddress1=""
+mailAddress2=""
+mailCity=""
+mailState=""
+mailZip=""
+resiAddress1=""
+resiAddress2=""
+resiCity=""
+resiState=""
+resiZip=""
+driverSid=""
+dob=""
+filler2=""
+jurorStatusInd=""
+statusDesc=""
+reportingGroup=""
+reportingDate=""
+reportingLocationId=""
+reportingLocation=""
+schgcnt=""
+scheduleChange=""
+serviceEnd=""
+attendance=""
+informationChg=""
+qualification=""
+firstPossibleDate=""
+lastPossibleDate=""
+payDate=""
+payAmt=""
+summonsDate=""
+dola=""
+caseId=""
+panelId=""
+lactEvent=""
+lactType=""
+lactReason=""
+lactNoticeType=""
+lactNoticeStatus=""
+lastAffRtnDate=""
+juryTermId=""
+locTodayDate=""
+confirmInd=""
+tstepqualify=""
+ftacount=""
+delinqsts=""
+lastActivityDate=""
+jurorType=""
+formClasses=""
+jrinInd=""
+enotifyStatus=""
+filler1=""
+pendingUpdate=""
 
 [UpdateJsiVars]
 type=ChangeVariable
@@ -48,16 +115,31 @@ GetJurorInfoEndpoint=JsiBaseUrl%GetJurorInfoEndpoint
 
 [SetJsiTestVars]
 type=ChangeVariable
-JurorId="1234567"
+JurorId="008008548"
+
 
 [SetJsiUrl]
 type=ChangeVariable
 GetJurorInfoEndpoint=GetJurorInfoEndpoint%"/"%JurorId%"?api_key="%JsiApiKey
 
+! The GetJurorInfoEndpoint should look like this:
+! https://jury-svc-prod.sjcourts.org/jp_access/ws/jury/get_juror/008008548?api_key=keySJQ439!
 [LogJsiGetJurorUrl]
 type=Log
 var=GetJurorInfoEndpoint
-Next=JsiGetJuror
+
+[MainMenu]
+type=Menu
+TtsString="Get Juror, press 1. To repeat this menu, press 9."
+OnKey1=JsiGetJurorAPI
+OnKey9=MainMenu
+TimeoutSec=8
+MaxTimeOuts=3
+OnMaxTimeOuts=Goodbye
+
+[JsiGetJurorAPI]
+type=Log
+var=JurorId,GetJurorInfoEndpoint
 
 [JsiGetJuror]
 type=RestApi
@@ -144,10 +226,44 @@ if (vars["code"] == "200")
 }
 """
 StatusCodeVar=JsiHttpStatus
-SuccessVar=JsiSuccess
-ErrorVar=JsiError
-OnError=JsiGetJurorError
-Next=JsiGetJurorDone
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=APIError_GetJuror
+Next=CheckApiStatus_GetJuror
+
+
+!=============================================
+! Check API Result
+!=============================================
+[CheckApiStatus_GetJuror]
+type=Branch
+Var=ApiSuccess
+true=CheckJsiStatus_GetJuror
+Next=APIError_GetJuror
+
+[APIError_GetJuror]
+type=Log
+var=ApiSuccess,ApiError,JsiHttpStatus,JsiError
+
+[PlayApiError_GetJurorCall]
+type=Play
+ttsstring="An error occurred while calling the Get Juror API. "
+Next=Goodbye
+
+[PlayApiError_GetJuror]
+type=Play
+ttsstring="An error occurred while retrieving juror information. "
+msgString=JsiError
+WaitForMsg=TRUE
+Next=Goodbye
+
+!=============================================
+! Check JSI API Result
+!=============================================
+[CheckJsiStatus_GetJuror]
+type=Log
+var=code,message
+Next=Goodbye
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

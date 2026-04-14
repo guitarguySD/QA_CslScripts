@@ -237,10 +237,10 @@ isPastReportingDateFtaCutoff=0
 JurorId=""
 JurorDOB=""
 ScheduledDate=""
-REPORTING_WEEK_CUTOFF_HOUR = 18; 
-ONCALL_START_HOUR = 18; 
-ONCALL_END_HOUR = 10;  
-FTA_CUTOFF_HOUR = 11; 
+REPORTING_WEEK_CUTOFF_HOUR = 18
+ONCALL_START_HOUR = 18
+ONCALL_END_HOUR = 10 
+FTA_CUTOFF_HOUR = 11
 
 ! BioInfo and Qualification Question variables
 Q1Answer=""
@@ -357,7 +357,7 @@ ProcessBioformEndpoint=NeumoBaseUrl%ProcessBioformEndpoint
 
 [GetNeumoVariables]
 type=VariableManager
-VarList=NeumoUserId,NeumoPassword
+VarList=NeumoUserId,NeumoPassword,Reporting_Week_Cutoff_Hour,OnCall_Start_Hour,OnCall_End_Hour,Fta_Cutoff_Hour
 OnError=LogVMNeumoError
 Next=SetJurorStateUNKNOWN
 
@@ -377,11 +377,9 @@ FirstRetrieval=1
 type=SetGlobals
 Language="English"
 
-
-
 [GetInitialVariables]
 type=VariableManager
-VarList="AssistanceAvailable,OperatorOpen,OperatorClosed,RecordPassword,HostAvailable,TestPassword,ONCALL_START_HOUR,ONCALL_END_HOUR,CourtPhoneNumber,CourtFaxNumber"
+VarList="AssistanceAvailable,OperatorOpen,OperatorClosed,HostAvailable,ONCALL_START_HOUR,ONCALL_END_HOUR,CourtPhoneNumber,CourtFaxNumber"
 OnError=LogVMError1
 Next=SetOpeningClosingTimes
 
@@ -740,11 +738,11 @@ type=changeVariable
 RetryCounter=3
 
 [PlayGetDOB]
-type=play
-msg="EnterDOB"
+type=log
 
 [GetDOBValue]
 type=GetDigits
+msg="EnterDOB"
 Var=CT_DOB
 CountVar=NumberOfDigits
 Terminator="#"
@@ -826,7 +824,6 @@ var FTA_CUTOFF_HOUR = vars["Fta_Cutoff_Hour"] != "" ? int.Parse(vars["Fta_Cutoff
 
 var root = JsonDocument.Parse(response).RootElement;
 var scheduledDate = "";
-var testDate=vars["ScheduledDate"];
 // Root level
 vars["CT_ResultCode"]    = root.TryGetProperty("status",    out var status)    ? status.GetString()    ?? "" : "";
 vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
@@ -860,8 +857,6 @@ if (root.TryGetProperty("jurorInformation", out var juror))
             out DateTime schDt)
         ? schDt.ToString("yyyy-MM-ddTHH:mm:ss")
         : "";
-    //For testing 
-    scheduledDate = testDate;
     vars["CT_ScheduledDate"]     = scheduledDate;
 
     vars["CT_ScheduledTime"]     = juror.TryGetProperty("reportingTime",     out v) ? v.GetString() ?? "" : "";
@@ -1111,15 +1106,15 @@ StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
 OnError=LogApiError
-Next=CheckPostponeInfoAPIResult
+Next=CheckPostponementInfoAPIResult
 
-[CheckPostponeInfoAPIResult]
+[CheckPostponementInfoAPIResult]
 type=Branch
 var=ApiSuccess
-true=CheckPostponeResult
+true=CheckPostponementResult
 Next=LogApiError ! Error path
 
-[CheckPostponeResult]
+[CheckPostponementResult]
 type=branch
 var=CT_ResultCode
 "OK"=LogPPResultCode
@@ -1134,7 +1129,7 @@ type=log
 var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode
 
 ! If the API does not return any dates, set postponement ineligible
-[CheckPostponeDates]
+[CheckPostponementDates]
 type=branch
 var=PostponeDate1
 ""=SetPostponementIneligible
@@ -1157,6 +1152,7 @@ Next=CheckExcuseEligibility
 ! 
 [CheckExcuseEligibility]
 type=log
+var=CheckExcuseExemptEndpoint
 
 [SetRequestType]
 type=changeVariable
@@ -1169,7 +1165,7 @@ CT_RequestType="Excuse"
 [CheckExcuseExemptDisqualify]
 type=RestApi
 Method=POST
-Url=CheckExcuseExemptEnpoint
+Url=CheckExcuseExemptEndpoint
 AuthType=Basic
 AuthUsername={NeumoUserId}
 AuthPassword={NeumoPassword}
@@ -1324,7 +1320,7 @@ var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_Re
 [VerifyNamePlay]
 type=play
 msg="VerifyName"
-msgString=CT_LastName
+msgString=CT_LastName%"|C"
 
 [VerifyNameMenu]
 type=menu
@@ -1569,11 +1565,12 @@ Next=JurorMenu
 [Pool]
 type=log
 logmsg="Pool"
-!Next=GenericReportingInfo
+Next=GenericReportingInfo
 
 [PoolCheckBioInfo]
 type=branch
 var=CT_BioComplete
+true=U_PlayNeedToCompleteBio
 0=U_PlayNeedToCompleteBio	! Start of BioInfo then Qualify
 Next=QualifyStart	! Qualify questions only
 
@@ -2272,14 +2269,14 @@ OnKey2=U_SetNotJudge
 OnKeyStar=U_JudgeMenu
 
 [U_SetJudge]
-type=changeVariable
+type=ChangeVariable
 Q5Answer="1"
 DisqReason5="DisqualJudge"
 Increment=DisqualifyingAnswersCount
 Next=U_SheriffMenu
 
 [U_SetNotJudge]
-type=changeVariable
+type=ChangeVariable
 Q5Answer="0"
 Next=U_SheriffMenu
 
@@ -2294,14 +2291,14 @@ OnKey2=U_SetNotSheriff
 OnKeyStar=U_SheriffMenu
 
 [U_SetSheriff]
-type=changeVariable
+type=ChangeVariable
 Q6Answer="1"
 DisqReason6="DisqualSheriff"
 Increment=DisqualifyingAnswersCount
 Next=U_CurrentCaseMenu
 
 [U_SetNotSheriff]
-type=changeVariable
+type=ChangeVariable
 Q6Answer="0"
 Next=U_CurrentCaseMenu
 
@@ -2316,14 +2313,14 @@ OnKey2=U_SetNotCurrentCase
 OnKeyStar=U_CurrentCaseMenu
 
 [U_SetCurrentCase]
-type=changeVariable
+type=ChangeVariable
 Q7Answer="1"
 DisqReason7="DisqualParty"
 Increment=DisqualifyingAnswersCount
 Next=U_FelonyMenu
 
 [U_SetNotCurrentCase]
-type=changeVariable
+type=ChangeVariable
 Q7Answer="0"
 Next=U_FelonyMenu
 
@@ -2337,12 +2334,12 @@ OnKey1=U_SetFelon
 OnKey2=U_SetNotAFelon
 
 [U_SetNotAFelon]
-type=changeVariable
+type=ChangeVariable
 Q8Answer="0"
 Next=U_SubmitQualificationResponses
 
 [U_SetFelon]
-type=changeVariable
+type=ChangeVariable
 Q8Answer="1"
 DisqReason5="DisqualFelon"
 Increment=DisqualifyingAnswersCount
@@ -2739,7 +2736,7 @@ Next=JurorMenuBlock
 [JurorMenuBlock] 
 type=Recognize
 PromptMsg="Silence"
-PromptMsgDTMF="ToHearAgain","JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
+PromptMsgDTMF="JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
 OnKey1=StatE_RequestDeferral
 OnKey2=StatE_FAQs
 OnKey3=StatE_RequestExcusals
