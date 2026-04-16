@@ -4488,9 +4488,11 @@ SuccessMsg="OK"
 
 [CannotServe]
 type=play
-msg="CannotServeTimeOrPlace"
+!msg="CannotServeTimeOrPlace"
+ttsstring="If you cannot serve on the date at that location, you will need to postpone to a different week or request a transfer to a different location. We will take you to the main menu where you can make those selections now."
 WaitForMsg=true
-Next=MainMenu
+!Next=MainMenu
+Next=StatE_RequestPostponement
 
 ! Grand Juror -----------------------
 [ConfirmServiceMenuGrandJuror]

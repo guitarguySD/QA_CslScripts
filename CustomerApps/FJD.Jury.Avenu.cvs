@@ -287,10 +287,10 @@ CT_returnedJurorId=""
 CT_requestType=""
 CT_requestEligibility=""
 
-! Jury Config Variables
+! Jury Config Variables for FJD - 4/15/26
 AllowDeferrals = 1
-AllowDisqualifications = 1
-AllowExcusals=1
+AllowDisqualifications = 0
+AllowExcusals=0
 FirstRetrieval=1
 FTAIsEligibleToDefer=0   ! This controls if FTA jurors can self process a deferral
 
@@ -1169,7 +1169,6 @@ Url=CheckExcuseExemptEndpoint
 AuthType=Basic
 AuthUsername={NeumoUserId}
 AuthPassword={NeumoPassword}
-Headers="accept": "application/json"
 ContentType=application/json
 TimeoutSeconds=30
 RequestScript="""
@@ -1369,6 +1368,7 @@ var=CT_JurorID,CT_JurorState
 type=branch
 var=CT_PendingReview
 1=PlayPendingReviewMsg
+0=SetDisposition
 Next=SetDisposition
 
 [PlayPendingReviewMsg]
@@ -1395,6 +1395,7 @@ Var=CT_JurorState
 "Qualified"=CheckReportingStatus   ! This is evaluated to QualifiedOnCall or QualifiedReport
 "QualifiedOnCall"=OnCallInfo
 "QualifiedReport"=RequiredToReportInfo
+"QualifiedReporting"=RequiredToReportInfo
 "Disqualified"=Disqualified
 "Permanent Disqualified"=Disqualified
 "Completed"=ServiceEnded
@@ -1436,6 +1437,7 @@ WaitForMsg=true
 type=branch
 var=FTAIsEligibleToDefer   ! This is a configuration variable
 0=FTASpeakToAgent
+1=FTADeferral
 Next=FTADeferral
 
 [FTASpeakToAgent]
@@ -2582,6 +2584,7 @@ var=CT_JurorState
 "Qualified"=SetQualifiedOptions
 "QualifiedOnCall"=SetQualifiedOptions
 "QualifiedReport"=SetQualifiedOptions
+"QualifiedReporting"=SetQualifiedOptions
 "Completed"=SetServiceEndedOptions
 "Undeliverable"=SetScreenJurorMenuError
 "Postponed"=SetServiceEndedOptions
@@ -2589,8 +2592,12 @@ var=CT_JurorState
 "Non-Responded FTA"=FTA
 "FTA"=FTA
 "OSC Issued"=SetScreenJurorMenuError
-Next=SetScreenJurorMenuError
+Next=LogJurorMenuStatusError
 
+[LogJurorMenuStatusError]
+type=log
+var=CT_JurorID,CT_JurorState
+Next=SetScreenJurorMenuError
 
 [SetScreenJurorMenuError]
 type=changeVariable
@@ -3572,43 +3579,308 @@ var=CT_JurorState
 "ERROR"=StatE_Transfer
 "UNDELIVERABLE"=StatE_Transfer
 Next=JurorMenu
+
 !============================================
 ! ACD Call
 !============================================
 [ACDAvailable]
 type=log
-Next=SetForAssistanceAvailable
 
-[SetForAssistanceAvailable]
+[GetAssistanceAvailableVar]
 type=VariableManager
 OnError=LogACDAvailableVMFailure
 VarList="AssistanceAvailable"
 
-[CheckOfficeOpenForJuryOperator]
+[CheckAssistanceAvailableForOperator]
 Type=Branch
 Var=AssistanceAvailable
 0=NoOperator
 1=PleaseHold
 Next=LogACDAvailableVMFailure
 
-[NoOperator]
-type=Play
-msg="NoOperators1"
-msgstring=OperatorOpen%"|D|h:n a/p"
-msg="And"
-msgstring=OperatorClosed%"|D|h:n a/p"
-msg="MondayThruFriday"
-WaitForMsg=true
-Next=Exit    
-
 [LogACDAvailableVMFailure]
 type=log
 logmsg="ACD Var Man Failure"
-next=PleaseHold
+Next=NoOperator
+
+[NoOperator]
+type=Play
+msg="NoOperatorAvailable"
+msg="HelpDeskHours"
+msgstring=HD_OpeningTime%"|D|h:n a/p"
+msg="To"
+msgstring=HD_ClosingTime%"|D|h:n a/p"
+msg="MondayThruFriday"
+ttsstring="We are returning you to the main menu"
+Next=JurorMenu
 
 [PleaseHold]
+type=play
+msg="PleaseHoldMsg"
+WaitForMsg=True
+
+[logACD1]
 type=log
-Next=StatE_Transfer
+logmsg="Route to ACD"
+
+[SetAcdCallReference]
+type=ChangeVariable
+@CallReference="AcdCall"
+
+[logACD]
+type=log
+logtype=ScriptEvent
+logmsg="Route to ACD-"%ACD_RouteName
+Next=RouteCaller
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller.  Note that this block never
+!  falls through and executes the Next block.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[RouteCaller]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+OnError=AcdRouteError
+OnAgentConnecting=AcdAgentConnecting
+OnAgentConnected=AcdAgentConnected
+OnCallReturn=CallReturnFromAcd
+OnTimeout=RouteTimeout
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call Enters Queue
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[ACDWait1]
+!Needed to know if going into queue or not
+type=pause
+pausesec=1
+
+[LogACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[CheckCaller]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdRouteError
+OnTimeout=RouteTimeout
+
+[LogCheckACDVars]
+type=log
+var=@AcdCallStatus,@AcdEstHoldTimeMin,@AcdGroupAsaMin,@AcdGroupName,@AcdGroupStatus,@AcdPositionInQueue,@AcdRouteCode,@AcdTimeInQueue
+
+[QueuePosition]
+type=branch
+var=@AcdPositionInQueue
+0=YouAreNext
+1=CurrentlyOne
+OnBelowRange=YouAreNext
+OnAboveRange=QueuePositionCheckForBad      !PlayQueuePosition
+
+[YouAreNext]
+type=play
+msg="NextInQueue"
+Next=ACDInQueue
+
+[CurrentlyOne]
+type=play
+msg="CurrentlyOne"
+Next=ACDInQueue
+
+[QueuePositionCheckForBad]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=PlayQueuePosition
+OnAboveRange=AcdError
+Next=AcdError
+
+[PlayQueuePosition]
+type=play
+msg="Currently"
+msgstring=@AcdPositionInQueue%"|N"
+msg="CallersAhead"
+
+[ACDInQueue]
+type=Play
+msg="$MusicOnHold1"
+msg="Silence"
+msg="$MusicOnHold2"
+msg="Silence"
+msg="$MusicOnHold3"
+msg="Silence"
+msg="$MusicOnHold4"
+msg="Silence"
+! Silence is placehold for on hold messages
+WaitForMsg=TRUE
+Next=CheckCaller
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Call is connecting to ACD Agent.  Play ring. 
+!     Queue 4 rings (4X6 sec) to limit logging.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnecting]
+type=Play
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+msg="$RingTone"
+WaitForMsg=TRUE
+Next=AcdAgentConnecting
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call is connected to ACD Agent
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[AcdAgentConnected]
+type=Pause
+PauseSec=60
+next=AcdAgentConnected
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Call has returned from ACD 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnFromAcd]
+type=Branch
+var=@AcdRouteCode
+1=CallReturnErrorRoute
+2=CallReturnDefaultRoute
+3=QueueShutdown
+4=QueueFull
+5=EndCall	
+6=CallReturnAgentTransfer	
+7=CallReturnReleaseKeyPressed
+8=CallReturnConferenceConnected
+9=CallReturnAgentAwol
+11=MainMenu
+12=HelpDeskGreeting
+53=EndCall  
+OnBelowRange=AcdError
+OnAboveRange=AcdError
+logblock=true
+Next=AcdError
+
+
+[CallReturnErrorRoute]
+type=Log
+LogMsg="Error Route"
+Next=QueueShutdown
+
+[CallReturnDefaultRoute]
+type=Log
+LogMsg="DefaultRoute"
+Next=QueueShutdown
+
+[QueueShutdown]
+type=Play
+msg="QueueShutdown"
+
+[logQueueShutdown]
+type=log
+logType=ScriptEvent
+logmsg="Queue Shutdown"
+Next=Exit
+
+[QueueFull]
+Type=Play
+msg="QueueFull"
+
+[logQueueFull]
+type=log
+logtype=ScriptEvent
+logmsg="QueueFull"
+Next=Exit
+
+[CallReturnAgentTransfer]
+type=log
+logmsg=ACD_Agent
+next=ACDInQueue
+	
+[CallReturnReleaseKeyPressed]
+type=log
+logmsg="Release Key Pressed"
+
+[AgentPressedRelease]
+type=Pause
+PauseSec=60
+Next=AgentPressedRelease
+
+[CallReturnConferenceConnected]
+type=Log
+LogMsg="ConferenceConnected"
+next=Exit
+
+[RouteTimeout]
+type=Play
+msg="AcdTimeout"
+next=Exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Route Caller after AWOL
+!  Uses Urgent priority.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[CallReturnAgentAwol]
+type=log
+logmsg="AWOL"
+
+[RouteCallerAfterAwol]
+type=ACD
+Command=RouteCall
+!OriginationNumber=ACD_OriginationAddress
+OriginationNumber=2139720970
+RouteName=ACD_RouteName
+Priority="Urgent"
+OnError=AcdRouteError
+next=PauseAfterAWOL
+
+[PauseAfterAWOL]
+type=Pause
+PauseSec=1
+
+[CheckCallerAfterAWOL]
+type=ACD
+Command=CheckCallStatus
+OnError=AcdError
+OnTimeout=AcdError
+
+[QueuePositionAfterAwol]  !end dysfunctional calls with bad q position
+type=branch
+var=@AcdPositionInQueue
+CompareType=Integer
+999=AcdError
+OnBelowRange=ACDInQueue
+OnAboveRange=AcdError
+Next=AcdError
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  Custom ACD Agent Routes
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+[AcdRouteError]
+type=Play
+FlushPlayQueue=True
+Msg="QueueShutdown"
+Next=CheckLoopingError
+
+[AcdError]
+type=Play
+FlushPlayQueue=True
+msg="SystemProblem"
+WaitForMsg=TRUE
+Next=Exit
+
+[CheckLoopingError]
+type=branch
+var=ErrorCounter
+1=Exit
+OnAboveRange=Exit
+Next=Sorry
+
 
 !--------------------------------------------------
 ! Page 43 - Admin
@@ -3666,32 +3938,3 @@ Command=Disconnect
 [TerminateCall]
 type=Terminate
 !!End Of Script Nothing Goes Below This
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

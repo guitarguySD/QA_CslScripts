@@ -43,8 +43,8 @@ JsiError=""
 
 [CreateJsiVars]
 type=DefineVars
-!JsiBaseUrl="https://jury-svc-prod.sjcourts.org/jp_access/ws/jury"
-JsiBaseUrl="https://jury-svc-test.sjcourts.org/jp_access/ws/jury"
+JsiBaseUrl="https://jury-svc-prod.sjcourts.org/jp_access/ws/jury"
+!JsiBaseUrl="https://jury-svc-test.sjcourts.org/jp_access/ws/jury"
 GetJurorInfoEndpoint="/get_juror"
 JurorId=""
 JsiApiKey="keySJQ439!"
@@ -108,6 +108,8 @@ jrinInd=""
 enotifyStatus=""
 filler1=""
 pendingUpdate=""
+RawJsonResponse=""
+pin=""
 
 [UpdateJsiVars]
 type=ChangeVariable
@@ -154,6 +156,7 @@ var root = JsonDocument.Parse(response).RootElement;
 
 vars["code"]    = root.TryGetProperty("code",    out var v) ? v.GetString() ?? "" : "";
 vars["message"] = root.TryGetProperty("message", out v)     ? v.GetString() ?? "" : "";
+vars["RawJsonResponse"] = response;
 
 if (vars["code"] == "200")
 {
@@ -263,6 +266,35 @@ Next=Goodbye
 [CheckJsiStatus_GetJuror]
 type=Log
 var=code,message
+
+[PlayGetJurorAPICallSuccess]
+type=Play
+ttsstring="The Get Juror API call was successful. "
+
+[LogGetJurorInfoRawJsonResponse]
+type=Log
+var=RawJsonResponse
+
+[LogGetJurorInfoVars]
+type=Log
+var=personId,badgeNumber,lastName,firstName,jurorStatusInd,jurorType
+[CheckLastName]
+type=Branch
+Var=lastName
+""=NoLastName
+Next=HasLastName
+
+[NoLastName]
+type=Play
+ttsstring="The juror's last name is not available. "
+WaitForMsg=TRUE
+Next=Goodbye
+
+[HasLastName]
+type=Play
+ttsstring="The juror's last name is "
+msgString=lastName%"|C"
+WaitForMsg=TRUE
 Next=Goodbye
 
 
@@ -278,7 +310,7 @@ msg="Thankyou"
 
 [Goodbye]
 type=play
-msg="Goodbye"
+ttsstring="Thank you, Goodbye."
 WaitForMsg=TRUE
 Next=EndCall
 
