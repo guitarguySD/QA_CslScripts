@@ -82,24 +82,24 @@ CallState=""
 FirstNameWithSpaces=""
 
 !ACD Variables
-ACD_AgentData=""	               !! Data sent to Agent Screen			
-ACD_AgentExtension=""	         !! Extension of agent to transfer call to from CheckCall routine		
-ACD_AgentName=""		         !! String with agent's name or extension	
-ACD_CallAge=""	               !! Time in sec. since call started		
-ACD_CallID=""		         !! 32-bit cardinal# assigned by ACD Var=ACD_Result		
-ACD_CallPriority=0		!!	
-ACD_CallState=0		         !! Current state of call		
-ACD_ConnectToAddress=0		!!
-ACD_ConnectType=0			!0= Use Dll to determine connected line state, 1=analog connected, 2=analog failed connect
-ACD_ConnectToName=0		!!
-ACD_ConnectedLineState=0	!!
+ACD_AgentData=""	            !! Data sent to Agent Screen			
+ACD_AgentExtension=""	        !! Extension of agent to transfer call to from CheckCall routine		
+ACD_AgentName=""		        !! String with agent's name or extension	
+ACD_CallAge=""	                !! Time in sec. since call started		
+ACD_CallID=""		            !! 32-bit cardinal# assigned by ACD Var=ACD_Result		
+ACD_CallPriority=0			
+ACD_CallState=0		            !! Current state of call		
+ACD_ConnectToAddress=0		    !!
+ACD_ConnectType=0			    !!0= Use Dll to determine connected line state, 1=analog connected, 2=analog failed connect
+ACD_ConnectToName=0		        !!
+ACD_ConnectedLineState=0	    !!
 ACD_EstimatedHoldTimeMin=0
-ACD_PortState=0		         !! Defines who has control of current call		
-ACD_PositionInQueue=0            !! Number of calls ahead of current call
-ACD_Result=0			!! Result Code from any CCSACD.Dll routine
-ACD_RouteCode=0		         !! Denotes why call routed back to CCS		
-ACD_RouteName="Traffic"		         !! String with destination route name		
-ACD_TimeInQueue=0	               !! Time in sec.  Stops when call assigned	
+ACD_PortState=0		            !! Defines who has control of current call		
+ACD_PositionInQueue=0           !! Number of calls ahead of current call
+ACD_Result=0			        !! Result Code from any CCSACD.Dll routine
+ACD_RouteCode=0		            !! Denotes why call routed back to CCS		
+ACD_RouteName="English"		    !! String with destination route name		
+ACD_TimeInQueue=0	            !! Time in sec.  Stops when call assigned	
 ACD_TransferFromAgentName=""	!! Agents name that is transferring a call
 ACD_ConnectedPortState=0		! ?
 ACD_ServerState=0				! ACD Server State 2=OK 6=Disabled
@@ -111,6 +111,7 @@ ACD_WaitForAnswerMSec=25000
 ACD_WaitForPortMSec=30000
 ACD_InboundDestination=""
 ACD_OriginationAddress="7026713857"
+
 AgentTransfer=0
 AnswerLength=0
 AgentCall=0
@@ -124,6 +125,7 @@ CR_Dialed_Number=""
 CR_Result=0
 DialCode=""
 EndOfCycleCount=0
+ErrorCounter=0
 OnHoldSequence=0 
 LineType="Analog"                
 QueueStatVariable=0
@@ -3757,8 +3759,7 @@ var=@AcdRouteCode
 7=CallReturnReleaseKeyPressed
 8=CallReturnConferenceConnected
 9=CallReturnAgentAwol
-11=MainMenu
-12=HelpDeskGreeting
+11=JurorMenu
 53=EndCall  
 OnBelowRange=AcdError
 OnAboveRange=AcdError
@@ -3819,6 +3820,7 @@ next=Exit
 type=Play
 msg="AcdTimeout"
 next=Exit
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !  Route Caller after AWOL
@@ -3881,6 +3883,11 @@ var=ErrorCounter
 OnAboveRange=Exit
 Next=Sorry
 
+[Sorry]
+type=Play
+ttsstring="We are sorry that you are having trouble. We will now disconnect the call. Please call back later."
+WaitForMsg=TRUE
+Next=Exit
 
 !--------------------------------------------------
 ! Page 43 - Admin
