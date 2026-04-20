@@ -65,7 +65,7 @@ JuryTestMode=0
 TestPassword=""
 TimeoutRetryCounter=0
 TransferDialString=""
-VT_Result=0
+CallDateTime=""
 
 ! Outbound Reminder Call Variables
 ApplicationCallType=""
@@ -98,7 +98,7 @@ ACD_PortState=0		            !! Defines who has control of current call
 ACD_PositionInQueue=0           !! Number of calls ahead of current call
 ACD_Result=0			        !! Result Code from any CCSACD.Dll routine
 ACD_RouteCode=0		            !! Denotes why call routed back to CCS		
-ACD_RouteName="English"		    !! String with destination route name		
+ACD_RouteName="JuryEn"		    !! String with destination route name		
 ACD_TimeInQueue=0	            !! Time in sec.  Stops when call assigned	
 ACD_TransferFromAgentName=""	!! Agents name that is transferring a call
 ACD_ConnectedPortState=0		! ?
@@ -176,6 +176,7 @@ CT_EligibleToPostpone=""
 CT_ExcuseExemptRequestStatus=""
 CT_FirstInitial=""
 CT_FirstName=""
+CT_FullName=""
 CT_GroupID=""
 CT_IneligibleReason=""
 CT_JurorID=""
@@ -537,6 +538,10 @@ Next=CheckHolidayToday
 Type=Log
 LogMsg="Spanish caller"
 
+[SetRouteToSpanish]
+type=ChangeVariable
+ACD_RouteName="JuryEs"
+
 [SpanishSelected]   ! page 06
 Type=Log
 LogMsg="Spanish"
@@ -749,7 +754,7 @@ Var=CT_DOB
 CountVar=NumberOfDigits
 Terminator="#"
 MinDigits=0
-MaxDigits=8
+MaxDigits=9
 TimeoutSec=6
 MaxTimeouts=0
 OnKeyStar=PlayGetDOB
@@ -889,6 +894,7 @@ if (root.TryGetProperty("jurorInformation", out var juror))
 
     DateTime scheduledDt;
     DateTime now = DateTime.Now;
+    vars["CallDateTime"] = now.ToString("yyyy-MM-ddTHH:mm:ss");
     if (DateTime.TryParse(scheduledDate, out scheduledDt))
     {
         int dayOfWeek = (int)scheduledDt.DayOfWeek;
@@ -932,6 +938,11 @@ Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
 [LogGetJurorInfo]
 type=log
 var=CT_JurorID,EnteredJurorID,CT_LastName,CT_JurorState,CT_ReportingStatus,CT_ReportingAtAfter,CT_ScheduledDate,CT_ScheduledTime,CT_LocationCode,CT_BioComplete
+
+[LogAdditionalJurorInfo]
+type=log
+var=CT_JurorID,CallDateTime,CT_ScheduledDate,InReportingWeek,InCallinWindow,isTodayReportingDate,isPastReportingDateFtaCutoff
+
 
 [CheckAPIResult_GetJurorInfo]
 type=branch
@@ -1284,7 +1295,7 @@ OnKeyStar=DOBMismatch
 
 [SetScreenMsgDOBMismatch]
 type=changeVariable
-ScreenMsg="Requested Agent: DOB Mismatch"
+ScreenMsg="DOB Mismatch"
 Next=ACDAvailable
 
 
@@ -1308,7 +1319,7 @@ OnKeyStar=RecordNotFound
 
 [SetScreenMsgRecordNotFound]
 type=changeVariable
-ScreenMsg="Requested Agent: DOB Mismatch"
+ScreenMsg="DOB Mismatch"
 Next=ACDAvailable
 
 !--------------------------------------------------
@@ -1347,16 +1358,22 @@ type=menu
 msg="RevalidateMenu"
 OnKey1=SetScreenMsgReEnterJurorID
 OnKey2=ResetForGetJurorID
+OnKey0=SetScreenMsgReEnterJurorID
 
 [SetScreenMsgReEnterJurorID]
 type=changeVariable
-ScreenMsg="Requested Agent: Re-Enter JurorID"
+ScreenMsg="Problem with JurorID"
 Next=ACDAvailable
 
 [ResetForGetJurorID]
 type=changeVariable
 FirstRetrieval=1
 CT_JurorState="UNKNOWN"
+CT_JurorID=""
+
+[PlayRetryJurorId]
+type=Play
+msg="LetsRetryJurorID"
 Next=GetJurorID
 
 !--------------------------------------------------
@@ -1450,7 +1467,7 @@ Next=SetScreenMsgFTA
 
 [SetScreenMsgFTA]
 type=changeVariable
-ScreenMsg="Requested Agent: FTA"
+ScreenMsg="FTA"
 Next=ACDAvailable
 
 [FTADeferral]
@@ -1462,7 +1479,7 @@ OnAboveRange=OpportunityToReschedule
 
 [SetScreenMsgFTADeferral]
 type=changeVariable
-ScreenMsg="Requested Agent: FTA Deferral"
+ScreenMsg="FTA Deferral"
 Next=ACDAvailable
 
 
@@ -1499,7 +1516,7 @@ Next=JurorMenu
 
 ![SetScreenMsgExcused]
 !type=changeVariable
-!ScreenMsg="Requested Agent: FTA Deferral"
+!ScreenMsg="FTA Deferral"
 !Next=ACDAvailable
 
 
@@ -1523,7 +1540,7 @@ Next=JurorMenu
 
 ! [SetScreenMsgDisqualified]
 ! type=changeVariable
-! ScreenMsg="Requested Agent: Disqualified"
+! ScreenMsg="Disqualified"
 ! Next=ACDAvailable
 
 !--------------------------------------------------
@@ -1549,7 +1566,7 @@ Next=JurorMenu
 
 ! [SetScreenMsgDeferred]
 ! type=changeVariable
-! ScreenMsg="Requested Agent: Deferred"
+! ScreenMsg="Deferred"
 ! Next=ACDAvailable
 
 
@@ -2512,7 +2529,7 @@ Next=GetJurorRecord
 
 [SetScreenMsgForDisqualPending]
 type=ChangeVariable
-ScreenMsg="Requested Agent: Disqual Pending"
+ScreenMsg="Disqual Pending"
 Next=ACDAvailable
 
 !----------------------------------------------
@@ -2603,7 +2620,7 @@ Next=SetScreenJurorMenuError
 
 [SetScreenJurorMenuError]
 type=changeVariable
-ScreenMsg="Transfer: JurorStatus="%CT_JurorState
+ScreenMsg="Transfer from Main Menu"
 Next=ACDAvailable
 
 
@@ -2813,7 +2830,7 @@ OnKeyPound=PlayNotEligibleMsg
 
 [SetScreenMsgForNotEligibleToDefer]
 Type=ChangeVariable
-ScreenMsg="Requested Agent: NOT ELIGIBLE TO DEFER"
+ScreenMsg="NOT ELIGIBLE TO DEFER"
 Next=ACDAvailable
 
 !--------------------------------------------------
@@ -3293,7 +3310,7 @@ OnKeyPound=PaymentInfoMenu
 
 [SetScreenMsgForPaymentInfo]
 type=ChangeVariable
-ScreenMsg="Requested Agent: Payment Info"
+ScreenMsg="Payment Info"
 Next=ACDAvailable
 
 !--------------------------------------------------
@@ -3374,6 +3391,7 @@ LogMsg="Transfer"
 type=branch
 var=AssistanceAvailable
 1=TransferPleaseHold
+true=TransferPleaseHold
 Next=PlayNoAssistanceAvailable
 
 [PlayNoAssistanceAvailable]
@@ -3598,6 +3616,8 @@ Type=Branch
 Var=AssistanceAvailable
 0=NoOperator
 1=PleaseHold
+true=PleaseHold
+false=NoOperator
 Next=LogACDAvailableVMFailure
 
 [LogACDAvailableVMFailure]
@@ -3633,6 +3653,10 @@ type=ChangeVariable
 type=log
 logtype=ScriptEvent
 logmsg="Route to ACD-"%ACD_RouteName
+
+[LogACDRouteName]
+type=log
+var=ACD_RouteName
 Next=RouteCaller
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -3914,7 +3938,13 @@ Next=CompareAdminPassword
 [CompareAdminPassword]
 type=branch
 var=EnteredRecordPassword
+1234=PlayMessagesTest
 RecordPassword=StatE_RecordPhrase
+Next=Goodbye
+
+[PlayMessagesTest]
+type=Play
+msg="JuryIdMenu"
 Next=Goodbye
 
 [StatE_RecordPhrase]

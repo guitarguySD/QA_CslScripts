@@ -1,2 +1,4 @@
 # Ignore JSI/Cvp.Jury.jsi directory
 JSI/Cvp.Jury.Jsi/
+.vscode/
+CustomerApps/.vscode/
