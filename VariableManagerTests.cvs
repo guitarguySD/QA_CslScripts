@@ -127,7 +127,7 @@ var=Timechange,AnotherTestVariable,TestVariable
 [Test2Check1]
 type=branch
 var=TimeChange
-"08:00 PM"=Test2Check2
+"08:00 AM"=Test2Check2
 Next=Test2Fail
 
 [Test2check2]

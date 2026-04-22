@@ -36,6 +36,8 @@ OnScriptError=HangupCall
 AllowOnDisconnect=1
 LogTrace=1
 
+[LogScriptVersion260422_1]
+type=log
 
 !========================================
 ! Define Variables
@@ -632,6 +634,10 @@ OnMaxTimeouts=CheckJuryIDLength
 Next=CheckJuryIDLength
 
 [CheckJuryIDLength]
+type=Log
+var=CT_JurorID,NumberOfDigits
+
+[BranchOnLengthOfJurorID]
 type=branch
 Var=NumberOfDigits
 0=IDUnknown
@@ -653,6 +659,9 @@ Increment=IDRetryCounter
 [CheckJuryIDRetriesTooShort]
 type=branch
 Var=IDRetryCounter
+0=IDInsufficientDigits
+1=IDInsufficientDigits
+2=IDInsufficientDigits
 3=IDProblem
 OnBelowRange=IDInsufficientDigits
 Next=IDProblem
@@ -740,6 +749,12 @@ Next=EnterJuryID
 [GetDOB]
 type=log
 
+[SetDOBForNow]
+type=changeVariable
+CT_DOB="01011961"
+Next=RetrieveRecord
+
+
 [ResetVarsForDOB]
 type=changeVariable
 RetryCounter=3
@@ -788,7 +803,7 @@ Next=GetDOBValue
 !--------------------------------------------------
 [RetrieveRecord]
 Type=Log
-logmsg=CT_JurorId
+var=CT_JurorId,CT_DOB
 
 [ResetVarsForRetrieveRecord]
 type=changeVariable
@@ -1028,7 +1043,7 @@ var=CT_JurorState
 "Available"=CheckPendingReview
 "Pool"=CheckPendingReview
 "Qualified"=CheckPendingReview
-"QualifiedReport"=CheckPendingReview
+"QualifiedReporting"=CheckPendingReview
 "QualifiedOnCall"=CheckPendingReview
 "FTA Responded"=CheckPendingReview
 "FTA Non Responded"=CheckPendingReview
@@ -1074,8 +1089,10 @@ ResponseScript="""
     // jurorInformation block
     if (root.TryGetProperty("jurorInformation", out var jurorInformation))
     {
-        vars["PostponeEligible"] = jurorInformation.TryGetProperty("postponeEligible", out var v) ? v.GetString() ?? "" : "";
-        vars["PostponeIneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
+        vars["CT_EligibleToPostpone"] = jurorInformation.TryGetProperty("postponeEligible", out var v) 
+            ? (string.Equals(v.GetString(), "Yes", StringComparison.OrdinalIgnoreCase) ? "1" : "0") 
+            : "0";
+        vars["CT_IneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
         
         if (jurorInformation.TryGetProperty("calculatedPostponeDates", out var postponementDates))
         {
@@ -1139,7 +1156,7 @@ var=CT_ResultCode,CT_ResultMessage
 
 [LogPostponementData]
 type=log
-var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode
+var=CT_JurorID,CT_ScheduledDate,CT_EligibleToPostpone,CT_IneligibleReason,PostponeDate1,PostponeDate2,PostponeDate3,CT_ResultCode
 
 ! If the API does not return any dates, set postponement ineligible
 [CheckPostponementDates]
@@ -1876,7 +1893,7 @@ Next=U_CheckPhoneInput2
 
 [U_ProblemEnteringPhone]
 Type=ChangeVariable
-ScreenMsg="Problem Entering Phone Number"
+ScreenMsg="Problem Entering Phone #"
 Next=StatE_Sorry
 
 [U_CheckPhoneInput2]
@@ -2788,7 +2805,7 @@ Next=StatE_Sorry
 
 [SetScreenJurorMenuBlock]
 type=changeVariable
-ScreenMsg="Transfer: JurorStatus="%CT_JurorState
+ScreenMsg="Transfer from Mainmenu"
 Next=ACDAvailable
 
 !--------------------------------------------------
@@ -3202,7 +3219,7 @@ var=CT_ExcuseExemptRequestStatus
 
 [SetScreenMsgForExcusalProblem]
 type=ChangeVariable
-ScreenMsg="Excusal: Problem Updating DB"
+ScreenMsg="Excusal:Problem w/DB"
 
 [PlayExcusalProblem]
 type=play
@@ -3220,7 +3237,7 @@ OnKey0=SetScreenMsgForExcusalIneligible
 
 [SetScreenMsgForExcusalIneligible]
 type=ChangeVariable
-ScreenMsg="Excusal: Excusal Ineligible"
+ScreenMsg="Excusal Ineligible"
 Next=ACDAvailable
 
 

@@ -40,10 +40,67 @@ DefaultLogGetDigits=True
 DefaultLogPlay=True
 DefaultTerminator=""
 
+[DefineVars]
+type=DefineVars
+NumberOfDigits=""
+CT_DOB=""
+
 
 [StartTests]
 type=play
 TTSString="Branch Block Tests"
+
+[TestOnBelowRange]
+type=play
+TTSString="Testing Branch Range vars"
+
+[GetDOBValue]
+type=GetDigits
+ttsstring="Enter an 8 digit number"
+Var=CT_DOB
+CountVar=NumberOfDigits
+Terminator="#"
+MinDigits=0
+MaxDigits=9
+TimeoutSec=6
+MaxTimeouts=0
+OnKeyStar=GetDOBValue
+OnMaxTimeouts=CheckVars
+Next=CheckVars
+
+[CheckVars]
+type=log
+var=CT_DOB,NumberOfDigits
+Next=CheckDOBLength
+
+[CheckDOBLength]
+type=branch
+var=NumberOfDigits
+8=ExpectedLength
+OnAboveRange=OnAboveRange
+OnBelowRange=OnBelowRange
+Next=ShouldNotExitHere
+
+[ExpectedLength]
+type=play
+ttsstring="The number of digits is as expected."
+Next=GetDOBValue
+
+[ShouldNotExitHere]
+type=play
+ttsstring="The branch block should not end up here. The Count was "
+msgstring=NumberOfDigits
+Next=GetDOBValue
+
+[OnAboveRange]
+type=play
+TTSString="The number of digits was above range"
+Next=GetDOBValue
+
+[OnBelowRange]
+type=play
+TTSString="The number of digits was below range"
+Next=GetDOBValue
 
 !================================
 ! Test 0 - Compare type integer
