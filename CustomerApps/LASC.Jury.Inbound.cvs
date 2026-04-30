@@ -4488,11 +4488,9 @@ SuccessMsg="OK"
 
 [CannotServe]
 type=play
-!msg="CannotServeTimeOrPlace"
-ttsstring="If you cannot serve on the date at that location, you will need to postpone to a different week or request a transfer to a different location. We will take you to the main menu where you can make those selections now."
+msg="CannotServeTimeOrPlace"
 WaitForMsg=true
-!Next=MainMenu
-Next=StatE_RequestPostponement
+Next=MainMenu
 
 ! Grand Juror -----------------------
 [ConfirmServiceMenuGrandJuror]
@@ -7558,10 +7556,60 @@ var=PasswordEntered
 "7539"=StatE_CallStarts
 "1111"=StandbyForNotificationTest
 "2222"=OrientationTest
-"3333"=DirectToCourtTest
+"3333"=GetJurorTest
 "4444"=QuestionnaireTest
 "5555"=GJQuestionnaireTest
 Next=Goodbye
+
+!----------------------------------
+! Get Juror Test
+!
+[GetJurorTest]
+type=log
+
+[PlayGetJurorTest]
+type=Play
+ttsstring="Starting Get Juror Test."
+
+[SetJurorIdForTest]
+type=ChangeVariable
+JurorID="268252926"
+JurorPassword="5032"
+RetryCounter=0
+
+[IncrementTestRetryCounter]
+type=changeVariable
+Increment=RetryCounter
+
+[CheckTestRetryCounter]
+type=branch
+CompareType=Integer
+var=RetryCounter
+201=EndCall
+OnBelowRange=TestGetJurorInfo
+OnAboveRange=EndCall
+Next=EndCall
+
+
+[TestGetJurorInfo]
+type=ExecuteRoutine
+DLL="Cvp.Universal.DllLoader\Sonant.Cvp.Universal.DllLoader.dll"
+Routine="GetJuror"
+OnExecuteError=LogGetJurorExecuteErrorTest
+Next=LogTestResults
+
+[LogGetJurorExecuteErrorTest]
+type=log
+var=@Result,@ResultMessage,ResultCode,ErrorMessage
+
+[LogTestResults]
+type=Log
+var=JurorID,ResultCode,JurorStatusEnum
+
+[PauseBeforeTryAgain]
+type=Pause
+PauseSec=5
+Next=IncrementTestRetryCounter
 
 !----------------------------------
 ! Questionnaire Test

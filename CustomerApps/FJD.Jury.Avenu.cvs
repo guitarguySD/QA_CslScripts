@@ -285,6 +285,15 @@ DisqReason6=""
 DisqReason7=""
 DisqReason8=""
 DisqualifyingAnswersCount=0
+DisqualFollowupCount=0
+DisqInfo1=""
+DisqInfo2=""
+DisqInfo3=""
+DisqInfo4=""
+DisqInfo5=""
+DisqInfo6=""
+DisqInfo7=""
+DisqInfo8=""
 
 CJ_JurorID="" ! This is returned from Clearview Jury. For error checking purposes.
 ! Check Excuse Exempt Disqualify
@@ -1634,17 +1643,17 @@ Next=GenericReportingInfo
 type=log
 logmsg="Qualified"
 
-[CheckBioInfoCompleted]
-type=branch
-var=CT_BioComplete
-0=PlayNeedToCompleteBioInfo
-Next=GenericReportingInfo
+! [CheckBioInfoCompleted]
+! type=branch
+! var=CT_BioComplete
+! 0=PlayNeedToCompleteBioInfo
+! Next=GenericReportingInfo
 
-[PlayNeedToCompleteBioInfo]
-type=play
-msg="NeedToCompleteBioInfo"
-msg="FairAndBalancedJuries"
-Next=GetBioInfo
+! [PlayNeedToCompleteBioInfo]
+! type=play
+! msg="NeedToCompleteBioInfo"
+! msg="FairAndBalancedJuries"
+! Next=GetBioInfo
 !Next=GenericReportingInfo
 
 !--------------------------------------------------
@@ -1782,7 +1791,9 @@ msg="CurrentlyScheduled"
 msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
 msg="BeSureToCall"
 msg="ToHearAgain"
-Next=JurorMenu
+ttsstring="You still need to complete your registration for jury service by answering a few qualification questions."
+Next=
+!Next=JurorMenu
 
 !=============================================================
 ! Bio questions and Eligibility verification
@@ -1800,205 +1811,6 @@ type=play
 !msg="UnqualifiedIntro"
 msg="BioIntro"
 
-!-----------------------------------------------
-! Check Origination Address & adjust if needed
-!-----------------------------------------------
-[U_SetPhoneRetry]
-Type=ChangeVariable
-EnterPhoneRetry=0
-TempVar=@OriginationAddress
-
-! Check Origination Address length & adjust
-[CheckPhoneLength1]
-Type=Branch
-Var=TempVar
-900000000000=RemoveTwoDigits
-OnAboveRange=RemoveTwoDigits
-
-[CheckPhoneLength2]
-type=branch
-Var=TempVar
-10000000000=RemoveFirstDigit
-OnAboveRange=RemoveFirstDigit
-
-[CheckPhoneLength3]
-type=branch
-Var=TempVar
-1000000000=UseOriginationAddress
-OnAboveRange=UseOriginationAddress
-OnBelowRange=U_GetBioInfoPhone ! Give up, just get phone number
-
-[RemoveFirstDigit]
-type=CopyString
-string=@OriginationAddress
-var=TempVar
-Start=2
-Count=10
-LogBlock=true
-Next=U_BioInfoPhone
-
-[RemoveTwoDigits]
-type=CopyString
-string=@OriginationAddress
-var=TempVar
-Start=3
-Count=10
-LogBlock=true
-Next=U_BioInfoPhone
-
-[UseOriginationAddress]
-Type=ChangeVariable
-TempVar=@OriginationAddress
-Next=U_BioInfoPhone
-
-
-[U_BioInfoPhone]
-type=play
-msg="TelephoneNumberIs"
-msgstring=TempVar
-
-[U_BioInfoPhoneMenu]
-type=menu
-msg="UseThisNumber"
-msg="TelephoneMenu"
-OnKey1=U_UseThisNumber
-OnKey2=U_GetBioInfoPhone
-OnKeyPound=U_BioInfoPhoneMenu
-
-[U_UseThisNumber] ! Use the origination address, skip getBioPhone
-type=changeVariable
-BQ5Answer=TempVar
-Next=U_GetGenderMenu
-
-[U_GetBioInfoPhone]
-Type=GetDigits
-Var=BQ5Answer
-CountVar=NumberOfDigits
-Msg="BioPhone"
-Terminator="#"
-MinDigits=10
-MaxDigits=11
-OnMaxTimeouts=StatE_Sorry
-OnKeyStar=U_GetBioInfoPhone
-Timeoutmsg="InsufficientDigits"  
-Next=U_CheckPhoneInput
-
-[U_CheckPhoneInput]
-type=branch
-Var=EnterPhoneRetry
-3=U_ProblemEnteringPhone
-OnBelowRange=U_CheckPhoneInput2
-OnAboveRange=U_ProblemEnteringPhone
-Next=U_CheckPhoneInput2
-
-[U_ProblemEnteringPhone]
-Type=ChangeVariable
-ScreenMsg="Problem Entering Phone #"
-Next=StatE_Sorry
-
-[U_CheckPhoneInput2]
-type=branch
-Var=NumberOfDigits
-10=U_GetGenderMenu
-OnBelowRange=U_NotEnoughDigitsPhone
-OnAboveRange=U_TooManyDigitsPhone
-Next=U_TooManyDigitsPhone
-
-! Too short
-[U_NotEnoughDigitsPhone]
-type=changevariable
-Increment=EnterPhoneRetry
-
-[U_PhoneInsufficientDigits]
-type=Play
-msg="InsufficientDigits"
-Next=U_GetBioInfoPhone
-
-! Too long
-[U_TooManyDigitsPhone]
-type=changevariable
-Increment=EnterPhoneRetry
-
-[U_PhoneTooLong]
-type=Play
-msg="TooLong"
-Next=U_GetBioInfoPhone
-
-!--------------------------------
-! Get Gender
-!--------------------------------
-[U_GetGenderMenu]
-Type=Menu
-Msg="BioGenderMenu"
-OnKey1=U_SetGenderToMale
-OnKey2=U_SetGenderToFemale
-OnKey3=U_SetGenderNotSpecified
-OnKeyStar=U_GetGenderMenu
-OnKeyPound=U_GetGenderMenu
-
-[U_SetGenderToMale]
-Type=ChangeVariable
-BQ1Answer="Male"
-Next=U_GetRaceMenu
-
-[U_SetGenderToFemale]
-Type=ChangeVariable
-BQ1Answer="Female"
-Next=U_GetRaceMenu
-
-[U_SetGenderNotSpecified]
-type=ChangeVariable
-BQ1Answer=" "
-Next=U_GetRaceMenu
-
-!---------------------------------
-! Spouse Summoned
-!---------------------------------
-[U_SpouseSummonedMenu]
-Type=Menu
-Msg="BioSpouseSummonedMenu"
-OnKey1=U_SetSpouseSummonedYes
-OnKey2=U_SetSpouseSummonedNo
-OnKey3=U_SetSpouseNotSpecified
-OnKeyStar=U_SpouseSummonedMenu
-OnKeyPound=U_GetRaceMenu
-
-[U_SetSpouseSummonedNo]
-Type=ChangeVariable
-BQ7Answer="No"
-Next=U_GetRaceMenu
-
-[U_SetSpouseSummonedYes]
-Type=ChangeVariable
-BQ7Answer="Yes"
-Next=U_GetRaceMenu
-!Next=U_SpecialAccomodationsMenu
-
-[U_SetSpouseNotSpecified]
-type=changeVariable
-BQ7Answer=" "
-Next=U_GetRaceMenu
-
-!---------------------------------
-! Special Accomodations
-!---------------------------------
-![U_SpecialAccomodationsMenu]
-!Type=Menu
-!Msg="BioSpecialAccomodationsMenu"
-!OnKey1=U_SetSpecialAccomodationsYes
-!OnKey2=U_SetSpecialAccomodationsNo
-!OnKeyStar=U_SpouseSummonedMenu
-!OnKeyPound=U_SpecialAccomodationsMenu
-
-![U_SetSpecialAccomodationsYes]
-!Type=ChangeVariable
-!BQ1Answer="No"
-!Next=U_GetRaceMenu
-
-[U_SetSpecialAccomodationsNo]
-Type=ChangeVariable
-BQ1Answer="Yes"
-Next=U_GetRaceMenu
 
 !---------------------------------
 ! Get Race
@@ -2025,37 +1837,37 @@ OnKeyPound=U_GetRaceMenu
 
 [U_SetRaceToAsian]
 Type=ChangeVariable
-BQ10Answer="E"		! Asian
+BQ1Answer="E"		! Asian
 Next=U_LogBioAnswers
 
 [U_SetRaceToBlack]
 Type=ChangeVariable
-BQ10Answer="A"		! African American
+BQ1Answer="A"		! African American
 Next=U_LogBioAnswers
 
 [U_SetRaceToNativeAmerican]
 Type=ChangeVariable
-BQ10Answer="D"		! Native American
+BQ1Answer="D"		! Native American
 Next=U_LogBioAnswers
 
 [U_SetRaceToHawaiian]
 Type=ChangeVariable
-BQ10Answer="C"		! Hawaiian
+BQ1Answer="C"		! Hawaiian
 Next=U_LogBioAnswers
 
 [U_SetRaceToWhite]
 Type=ChangeVariable
-BQ10Answer="B"		! Caucasion/White
+BQ1Answer="B"		! Caucasion/White
 Next=U_LogBioAnswers
 
 [U_SetRaceToOther]
 Type=ChangeVariable
-BQ10Answer="F"		! Other
+BQ1Answer="F"		! Other
 Next=U_LogBioAnswers
 
 [U_SetRaceNotSpecified]
 Type=ChangeVariable
-BQ10Answer=" "		! Not specified
+BQ1Answer=" "		! Not specified
 Next=U_LogBioAnswers
 
 !---------------------------------
@@ -2090,7 +1902,7 @@ Next=U_LogBioAnswers
 
 [U_LogBioAnswers]
 type=log
-var=CT_JurorID,BQ1Answer,BQ2Answer,BQ3Answer,BQ4Answer,BQ5Answer,BQ6Answer,BQ7Answer,BQ8Answer,BQ9Answer,BQ10Answer,BQ11Answer,BQ12Answer,BQ13Answer
+var=CT_JurorID,BQ1Answer
 
 [LogBioInfoInput] 
 type=log
@@ -2108,19 +1920,7 @@ RequestScript="""
         password = vars["NeumoPassword"],
         personId = vars["CT_JurorID"],
         answers = new[] {
-            new { questionId = "BioForm_IVR_1", value = vars["CT_BioForm_IVR_1"] },
-            new { questionId = "BioForm_IVR_2", value = vars["CT_BioForm_IVR_2"] },
-            new { questionId = "BioForm_IVR_3", value = vars["CT_BioForm_IVR_3"] },
-            new { questionId = "BioForm_IVR_4", value = vars["CT_BioForm_IVR_4"] },
-            new { questionId = "BioForm_IVR_5", value = vars["CT_BioForm_IVR_5"] },
-            new { questionId = "BioForm_IVR_6", value = vars["CT_BioForm_IVR_6"] },
-            new { questionId = "BioForm_IVR_7", value = vars["CT_BioForm_IVR_7"] },
-            new { questionId = "BioForm_IVR_8", value = vars["CT_BioForm_IVR_8"] },
-            new { questionId = "BioForm_IVR_9", value = vars["CT_BioForm_IVR_9"] },
-            new { questionId = "BioForm_IVR_10", value = vars["CT_BioForm_IVR_10"] },
-            new { questionId = "BioForm_IVR_11", value = vars["CT_BioForm_IVR_11"] },
-            new { questionId = "BioForm_IVR_12", value = vars["CT_BioForm_IVR_12"] },
-            new { questionId = "BioForm_IVR_13", value = vars["CT_BioForm_IVR_13"] }
+            new { questionId = "BioForm_IVR_1", value = vars["BQ1Answer"] }
         }
     };
     return JsonSerializer.Serialize(requestBody);
@@ -2206,182 +2006,134 @@ msg="HalfwayDone"
 !=================================================
 [QualifyStart]
 Type=log
-Next=U_CitizenshipMenu
+
+[QualifyInfo]
+type=Play
+TTSString="You will now be asked a series of questions to determine your eligibility for jury service. Please answer each question by pressing the corresponding number on your phone keypad. If you do not know the answer to a question, please press 0."
+Next=U_Question1
 
 [UnqualifiedInterviewRetry]
 type=log
 
-! Citizenship
-[U_CitizenshipMenu]
+!=========================================
+! Question 1 - Felony
+[U_Question1]
 type=menu
-msg="CitizenshipMenu"
-OnKey1=U_SetCitizen
-OnKey2=U_SetNotACitizen
+msg="QFelonyQuestion"
+msg="QInterviewMenu"
+OnKey1=U_SetQ1Yes
+OnKey2=U_SetQ1No
+OnKey0=SetScreenMsgQualifyInterview
 
-[U_SetCitizen]
+[SetScreenMsgQualifyInterview]
+type=ChangeVariable
+ScreenMsg="Qualification Issue"
+Next=ACDAvailable
+
+[U_SetQ1Yes]
 type=changeVariable
 Q1Answer="1"
-Next=U_ResidencyMenu
+DisqReason1="QDisqualFelony"
+DisqInfo1=""
+Increment=DisqualifyingAnswersCount
 
-[U_SetNotACitizen]
+[LogQ1Changes]
+type=log
+var=CT_JurorID,Q1Answer,DisqualifyingAnswersCount,DisqualFollowupCount
+Next=U_Question2
+
+[U_SetQ1No]
 type=changeVariable
 Q1Answer="0"
-DisqReason1="DisqualNonCitizen"
-Increment=DisqualifyingAnswersCount
-Next=U_ResidencyMenu
+Next=U_Question2
 
-!=================================================
-! Residency Menu
-! 
-[U_ResidencyMenu]
+!========================================
+[U_Question2]
 type=menu
-msg="ResidencyMenu"
-OnKey1=U_SetResident
-OnKey2=U_SetNotResident
+msg="QEnglishQuestion"
+msg="QInterviewMenu"
+OnKey1=U_SetQ2Yes
+OnKey2=U_SetQ2No
+OnKey0=SetScreenMsgQualifyInterview
 
-[U_SetResident]
+[U_SetQ2Yes]
 type=changeVariable
 Q2Answer="1"
-Next=U_EnglishMenu
+Next=U_Question3
 
-[U_SetNotResident]
+[U_SetQ2No]
 type=changeVariable
 Q2Answer="0"
-DisqReason2="DisqualNonResident"
+DisqReason2="QDisqualEnglish"
+DisqInfo2="QEnglishFollowup"
 Increment=DisqualifyingAnswersCount
-Next=U_EnglishMenu
+Increment=DisqualFollowupCount
+Next=U_Question3
 
-! English
-!=================================================
-! English Disqual 
-! 
-[U_EnglishMenu]
+[U_Question3]
 type=menu
-msg="EnglishMenu"
-OnKey1=U_SetEnglish 
-OnKey2=U_SetNonEnglish
+msg="QMentalQuestion"
+msg="QInterviewMenu"
+OnKey1=U_SetQ3Yes
+OnKey2=U_SetQ3No
+OnKey0=SetScreenMsgQualifyInterview
 
-[U_SetEnglish]
+[U_SetQ3Yes]
 type=changeVariable
 Q3Answer="1"
-Next=U_AgeMenu
+Next=U_Question4
 
-[U_SetNonEnglish]
+[U_SetQ3No]
 type=changeVariable
 Q3Answer="0"
-DisqReason3="DisqualEnglish"
+DisqReason3="QDisqualMental"
+DisqInfo3="QMentalFollowup"
+Increment=DisqualFollowupCount
 Increment=DisqualifyingAnswersCount
-Next=U_AgeMenu
+Next=U_Question4
 
-! 19 years or older
-!=================================================
-! Age Disqual 
-! 
-[U_AgeMenu]
+[U_Question4]
 type=menu
-msg="AgeMenu"
-OnKey1=U_SetOver18 
-OnKey2=U_SetUnder18
+msg="QCitizenQuestion"
+msg="QInterviewMenu"
+OnKey1=U_SetQ4Yes
+OnKey2=U_SetQ4No
+OnKey0=SetScreenMsgQualifyInterview
 
-[U_SetOver18]
+[U_SetQ4Yes]
 type=changeVariable
-Q4Answer=1
-Next=U_JudgeMenu
+Q4Answer="1"
+Next=U_Question5
 
-[U_SetUnder18]
+[U_SetQ4No]
 type=changeVariable
-Q4Answer=0
-DisqReason4="DisqualAge"
+Q4Answer="0"
+DisqReason4="DisqualCitizen"
+DisqInfo4=""
 Increment=DisqualifyingAnswersCount
-DisqualPendingMessage="UAgeInfo"
-Next=U_JudgeMenu
+Increment=DisqualFollowupCount
+Next=U_Question5
 
-!=================================================
-! Judge
-! 
-[U_JudgeMenu]
+[U_Question5]
 type=menu
-msg="JudgeMenu"
-OnKey1=U_SetJudge
-OnKey2=U_SetNotJudge
-OnKeyStar=U_JudgeMenu
+msg="QResidentQuestion"
+msg="QInterviewMenu"
+OnKey1=U_SetQ5Yes
+OnKey2=U_SetQ5No
+OnKey0=SetScreenMsgQualifyInterview
 
-[U_SetJudge]
-type=ChangeVariable
+[U_SetQ5Yes]
+type=changeVariable
 Q5Answer="1"
-DisqReason5="DisqualJudge"
-Increment=DisqualifyingAnswersCount
-Next=U_SheriffMenu
-
-[U_SetNotJudge]
-type=ChangeVariable
-Q5Answer="0"
-Next=U_SheriffMenu
-
-!=================================================
-! Sheriff
-! 
-[U_SheriffMenu]
-type=menu
-msg="SheriffMenu"
-OnKey1=U_SetSheriff
-OnKey2=U_SetNotSheriff
-OnKeyStar=U_SheriffMenu
-
-[U_SetSheriff]
-type=ChangeVariable
-Q6Answer="1"
-DisqReason6="DisqualSheriff"
-Increment=DisqualifyingAnswersCount
-Next=U_CurrentCaseMenu
-
-[U_SetNotSheriff]
-type=ChangeVariable
-Q6Answer="0"
-Next=U_CurrentCaseMenu
-
-!=================================================
-! Current Case before the court
-! 
-[U_CurrentCaseMenu]
-type=menu
-msg="PartyToCaseMenu"
-OnKey1=U_SetCurrentCase
-OnKey2=U_SetNotCurrentCase
-OnKeyStar=U_CurrentCaseMenu
-
-[U_SetCurrentCase]
-type=ChangeVariable
-Q7Answer="1"
-DisqReason7="DisqualParty"
-Increment=DisqualifyingAnswersCount
-Next=U_FelonyMenu
-
-[U_SetNotCurrentCase]
-type=ChangeVariable
-Q7Answer="0"
-Next=U_FelonyMenu
-
-!=================================================
-! Felony menu
-!=================================================
-[U_FelonyMenu]
-type=menu
-msg="FelonyMenu"
-OnKey1=U_SetFelon
-OnKey2=U_SetNotAFelon
-
-[U_SetNotAFelon]
-type=ChangeVariable
-Q8Answer="0"
 Next=U_SubmitQualificationResponses
 
-[U_SetFelon]
-type=ChangeVariable
-Q8Answer="1"
-DisqReason5="DisqualFelon"
+[U_SetQ5No]
+type=changeVariable
+Q5Answer="0"
+DisqReason5="QDisqualResident"
+DisqInfo5="QResidentFollowup"
 Increment=DisqualifyingAnswersCount
-DisqualPendingMessage="UFelonInfo"
+Increment=DisqualFollowupCount
 Next=U_SubmitQualificationResponses
 
 !======================================
@@ -2389,10 +2141,12 @@ Next=U_SubmitQualificationResponses
 ! 
 [U_SubmitQualificationResponses]
 type=log
+var=CT_JurorID,Q1Answer,Q2Answer,Q3Answer,Q4Answer,Q5Answer,DisqualifyingAnswersCount,DisqualFollowupCount,DisqReason1,DisqReason2,DisqReason3,DisqReason4,DisqReason5,DisqInfo1,DisqInfo2,DisqInfo3,DisqInfo4,DisqInfo5
 
 [CheckAnswerSum]
 type=Branch
 var=DisqualifyingAnswersCount
+CompareType=Integer
 !0=U_ExecuteProcessQualification
 0=PenaltyOfPerjuryMenu
 OnAboveRange=PlayDisqualificationConfirmation
@@ -2408,6 +2162,24 @@ msg=DisqReason5
 msg=DisqReason6
 msg=DisqReason7
 msg=DisqReason8
+
+[BranchOnFollowupCount]
+type=Branch
+var=DisqualFollowupCount
+CompareType=Integer
+0=PenaltyOfPerjuryMenu
+OnAboveRange=PlayDisqualFollowupInfo
+OnBelowRange=PenaltyOfPerjuryMenu
+
+[PlayDisqualFollowupInfo]
+type=play
+msg=DisqInfo1
+msg=DisqInfo2
+msg=DisqInfo3
+msg=DisqInfo4
+msg=DisqInfo5
+WaitForMsg=true
+Next=PenaltyOfPerjuryMenu
 
 [PenaltyOfPerjuryMenu]
 type=menu
@@ -2433,14 +2205,11 @@ RequestScript="""
         password = vars["NeumoPassword"],
         personId = vars["CT_JurorID"],
         answers = new[] {
-            new { questionId = "Qualification_IVR_1", value = vars["Q1Answer"] },
-            new { questionId = "Qualification_IVR_2", value = vars["Q2Answer"] },
-            new { questionId = "Qualification_IVR_3", value = vars["Q3Answer"] },
-            new { questionId = "Qualification_IVR_4", value = vars["Q4Answer"] },
-            new { questionId = "Qualification_IVR_5", value = vars["Q5Answer"] },
-            new { questionId = "Qualification_IVR_6", value = vars["Q6Answer"] },
-            new { questionId = "Qualification_IVR_7", value = vars["Q7Answer"] },
-            new { questionId = "Qualification_IVR_8", value = vars["Q8Answer"] }
+        new { questionId = "Qualification_IVR_1", value = vars["Q1Answer"] == "1" ? "Yes" : "No" },
+        new { questionId = "Qualification_IVR_2", value = vars["Q2Answer"] == "1" ? "Yes" : "No" },
+        new { questionId = "Qualification_IVR_3", value = vars["Q3Answer"] == "1" ? "Yes" : "No" },
+        new { questionId = "Qualification_IVR_4", value = vars["Q4Answer"] == "1" ? "Yes" : "No" },
+        new { questionId = "Qualification_IVR_5", value = vars["Q5Answer"] == "1" ? "Yes" : "No" }
         }
     };
     return JsonSerializer.Serialize(requestBody);
@@ -2584,6 +2353,14 @@ DisqReason5=""
 DisqReason6=""
 DisqReason7=""
 DisqReason8=""
+DisqInfo1=""
+DisqInfo2=""
+DisqInfo3=""
+DisqInfo4=""
+DisqInfo5=""
+DisqInfo6=""
+DisqInfo7=""
+DisqInfo8=""
 DisqualPendingMessage="None"
 Next=UnqualifiedInterviewRetry
 
@@ -3955,6 +3732,7 @@ Next=CompareAdminPassword
 [CompareAdminPassword]
 type=branch
 var=EnteredRecordPassword
+1111=QualifyStart
 1234=PlayMessagesTest
 RecordPassword=StatE_RecordPhrase
 Next=Goodbye

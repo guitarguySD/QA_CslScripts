@@ -1,6 +1,9 @@
 ! Variable manager tests
 ! dgoddette
 ! Oct 2025
+[LogVersion3]
+type=Log
+
 [ScriptSetup]
 Type=SetGlobals
 Language="English"
@@ -52,16 +55,40 @@ StartingValTest3=""
 type=play
 TTSString="These are the Variable Manager Tests."
 
-!====================================
+
+!===========================================
+! Test Exit on Error
+[TestExitOnError]
+type=play
+Ttsstring="VM block should exit on Error"
+
+[GetNonExistentVar]
+type=VariableManager
+VarList="ThisVarDoesNotExist"
+OnError=VmExitOnError
+Next=NormalExit
+
+[VmExitOnError]
+type=play
+TTSString="Exit on Error Test Passed. Block Exited on error."
+Next=Test01
+
+[NormalExit]
+type=play
+TTSString="Exit on Error Test Failed. Block did not exit on error."
+Next=Test01
+
+
+!====================================================================
 ! Test01 - get some vars
 ! 
 [Test01]
 type=play
-TTSString="Test one, get VM variables"
+TTSString="Fetch VM variables"
 
 [VarManagerTests]
 type=VariableManager
-VarList="TestVmVar1,TestVmVar2,TestVmVar3"
+VarList=TestVmVar1,TestVmVar2,TestVmVar3
 OnError=VmError
 Next=VMTest1Log
 
@@ -94,25 +121,25 @@ Next=Test1Fail
 
 [Test1Pass]
 type=play
-TTSString="Test one passed. Variables retrieved and are the expected values."
+TTSString="Fetch VM variables test passed. Variables retrieved and are the expected values."
 Next=Test2
 
 [Test1Fail]
 type=play
-TTSString="Test one failed. Retrieved Variables not matching expected values."
+TTSString="Fetch VM variables test failed. Retrieved Variables not matching expected values."
 Next=Test2
 
-!====================================
+!===========================================================================================
 ! Test03 - get some vars from another app
 ! 
 [Test2]
 type=play
-TTSString="Variable manager test 2. Fetching from another application."
+TTSString="Fetching from another application."
 
 [Test2VM]
 type=VariableManager
 Application="BasicIvrTest"
-varlist=Timechange,AnotherTestVariable,TestVariable
+varlist=TestVariable
 OnError=Vm2Error
 Next=VMTest2Log
 
@@ -122,19 +149,7 @@ Next=Test2Fail
 
 [VMTest2Log]
 type=log
-var=Timechange,AnotherTestVariable,TestVariable
-
-[Test2Check1]
-type=branch
-var=TimeChange
-"08:00 AM"=Test2Check2
-Next=Test2Fail
-
-[Test2check2]
-type=branch
-var=AnotherTestVariable
-"02:00 PM"=Test2Check3
-Next=Test2Fail
+var=TestVariable
 
 [Test2check3]
 type=branch
@@ -143,15 +158,14 @@ var=TestVariable
 "I change at 2:15 PM"=Test2Pass
 Next=Test2Fail
 
-
 [Test2Pass]
 type=play
-TTSString="Test two passed. Variables retrieved and are the expected values."
+TTSString="Passed. Variables retrieved and are the expected values."
 Next=Test3
 
 [Test2Fail]
 type=play
-TTSString="Test two failed. Retrieved Variables not matching expected values."
+TTSString="Fetching from another application test failed. Retrieved Variables not matching expected values."
 Next=Test3
 
 !====================================
@@ -159,7 +173,7 @@ Next=Test3
 ! 
 [Test3]
 type=play
-TTSString="Variable manager test 3. Setting variables"
+TTSString="Setting VM variables test"
 
 [Test3VM]
 type=VariableManager
@@ -205,12 +219,8 @@ Test3Var=""
 [GetTest3Var]
 type=VariableManager
 varlist=Test3Var
-OnError=Vm33Error
+OnError=Test3
 Next=VMTest33Log
-
-[Vm33Error]
-type=log
-Next=Test2Fail
 
 [VMTest33Log]
 type=log
@@ -234,6 +244,11 @@ Next=EndCall
 [Test3Fail]
 type=play
 TTSString="Test three failed. Retrieved Variable not matching expected values."
+Next=
+
+[Test3FailOnError]
+type=play
+TTSString="Test three failed on Variable manager error."
 Next=EndCall
 
 !=============================

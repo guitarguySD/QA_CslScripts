@@ -61,7 +61,7 @@ Var=CT_DOB
 CountVar=NumberOfDigits
 Terminator="#"
 MinDigits=0
-MaxDigits=9
+MaxDigits=12
 TimeoutSec=6
 MaxTimeouts=0
 OnKeyStar=GetDOBValue
@@ -77,6 +77,7 @@ Next=CheckDOBLength
 type=branch
 var=NumberOfDigits
 8=ExpectedLength
+CompareType=Integer
 OnAboveRange=OnAboveRange
 OnBelowRange=OnBelowRange
 Next=ShouldNotExitHere
@@ -89,7 +90,11 @@ Next=GetDOBValue
 [ShouldNotExitHere]
 type=play
 ttsstring="The branch block should not end up here. The Count was "
-msgstring=NumberOfDigits
+msgstring=NumberOfDigits%"|C"
+
+[LogGetDigitsValues]
+type=Log
+var=CT_DOB,NumberOfDigits
 Next=GetDOBValue
 
 [OnAboveRange]
@@ -110,7 +115,7 @@ TTSString="Test zero, compare type integer."
 
 [Test0Vars]
 type=DefineVars
-Test0Var=5
+Test0Var=3
 
 [TestLog]
 type=log
