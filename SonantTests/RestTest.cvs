@@ -64,6 +64,8 @@ ApiPayorAmount=""
 ApiJurorInformation=""
 ApiErrorCode=""
 ApiStatus=""
+RequestBody=""
+ResponseBody=""
 
 [CreateCallControlVars]
 type=DefineVars
@@ -98,6 +100,7 @@ ProcessExcuseExemptEnpoint="/processexcuseexempt"
 ProcessBioformEndpoint="/processbioform"
 jurorInformation=""
 rawJsonResponse=""
+rawJsonInput=""
 ! CourtTalk variables
 CT_BioComplete=""
 CT_CaseID=""
@@ -105,6 +108,7 @@ CT_City=""
 CT_DOB=""
 CT_EligibleToExcuse=""
 CT_EligibleToPostpone=""
+CT_PostponeIneligibleReason=""
 CT_ExcuseExemptRequestStatus=""
 CT_FirstInitial=""
 CT_FirstName=""
@@ -144,6 +148,8 @@ CT_State=""
 CT_Street1=""
 CT_Street2=""
 CT_Zipcode=""
+BQ1Answer=""
+BQ2Answer=""
 InReportingWeek=0
 InReportingWeekCode=""
 InOnCallCallinWindow=""
@@ -160,27 +166,19 @@ ONCALL_START_HOUR = 18
 ONCALL_END_HOUR = 10
 FTA_CUTOFF_HOUR = 11
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Get ScheduledDate Variable
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[GetScheduledDate]
+[ScriptVersions]
+type=Play
+ttsstring="Script version 9"
+!====================================
+!	Get VM Variables
+[GetRESTApiVars]
 type=VariableManager
 VarList="ScheduledDate,Fta_Cutoff_Hour,Reporting_Week_Cutoff_Hour,OnCall_Start_Hour,OnCall_End_Hour"
 OnError=VmError
-Next=LogScheduledDate
+Next=SetBasicCallReference
 
 [VmError]
 type=Log
-Next=SetScheduledDate
-
-[SetScheduledDate]
-type=ChangeVariable
-ScheduledDate="2026-04-06T00:00:00"
-Next=LogScheduledDate
-
-[LogScheduledDate]
-type=Log
-Var=ScheduledDate
 
 ! Default Call Reference stored in Calls table. Changed in some script paths.
 [SetBasicCallReference]
@@ -201,13 +199,175 @@ ProcessBioformEndpoint=NeumoBaseUrl%ProcessBioformEndpoint
 type=Log
 var=PingEndpoint
 
+!======================================
+! REST Test Menu
 [RestTestMenu]
 type=menu
-ttsstring="Main Menu. New-mo API, press 1. Minnesota API, press 2. Call Control API version 2, press 3. To exit, press 9."
+ttsstring="Main Menu. New-mo API, press 1. Minnesota API, press 2. Call Control API version 2, press 3. Neumo Postponement Test, press 4. Process Bioform Test, press 5. To exit, press 9."
 OnKey1=NeumoTest
 OnKey2=MnApiTest
 OnKey3=CallControlTest
+OnKey4=NeumoPostponementTest
+OnKey5=ProcessBioformTest
 OnKey9=ThankYouGoodbyeExit
+
+!======================================
+! Process Bioform Test
+[ProcessBioformTest]
+type=Log
+
+[U_LogBioAnswers]
+type=VariableManager
+varlist=CT_JurorID,BQ1Answer
+
+[LogBioInfoInput] 
+type=log
+var=CT_JurorID,BQ1Answer
+
+[U_ExecuteUpdateBioInfo]
+type=RestApi
+Method=POST
+Url=ProcessBioformEndpoint
+Method=POST
+RequestScript="""
+    using System.Text.Json;
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        personId = vars["CT_JurorID"],
+        answers = new[] {
+            new { questionId = "BioForm_IVR_1", value = vars["BQ1Answer"] }
+        }
+    };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["ResponseBody"] = JsonSerializer.Serialize(root);
+    // Root level
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    
+    // jurorInformation block
+    if (root.TryGetProperty("jurorInformation", out var jurorInformation))
+    {
+        vars["CT_BioComplete"] = jurorInformation.TryGetProperty("bioformCompletionStatus", out var bioformCompletionStatus) ? bioformCompletionStatus.GetString() ?? "" : "";
+    }
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogBioformAPIStatus
+Next=LogBioformAPIStatus
+
+
+[LogBioformAPIStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+
+[LogBioFormRequestResponse]
+type=Log
+var=RequestBody,ResponseBody
+
+
+[CheckBioformConfResult]
+type=branch
+var=CT_ResultCode
+"OK"=SuccessfulBioformUpdate
+Next=UnsuccessfulBioformUpdate
+
+[SuccessfulBioformUpdate]
+type=Play
+ttsstring="Bioform update successful. "
+Next=RestTestMenu
+
+[UnsuccessfulBioformUpdate]
+type=Play
+ttsstring="Bioform update unsuccessful. "
+Next=RestTestMenu
+
+!======================================
+! Neumo Postponement Test
+[NeumoPostponementTest]
+type=Log
+
+[GetPostponeVars]
+type=VariableManager
+VarList="CT_JurorID,CT_DOB,CT_SelectedDate"
+OnError=VmError
+
+[PostponementConfirmation]
+type=log
+var=CT_JurorID,CT_SelectedDate
+
+[ExecutePostponementConfirmation]
+type=RestApi
+Method=POST
+Url=PostponementConfirmationEndpoint
+RequestScript="""
+    using System.Text.Json;
+    
+    // Convert CT_SelectedDate from ISO8601 format to MMddyyyy format
+    string selectedDateFormatted = "";
+    if (!string.IsNullOrEmpty(vars["CT_SelectedDate"]) &&
+        DateTime.TryParse(vars["CT_SelectedDate"], out DateTime parsedDate))
+    {
+        selectedDateFormatted = parsedDate.ToString("MMddyyyy");
+    }
+    
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"],
+        postponedDate = selectedDateFormatted
+    };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
+    vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["ResponseBody"] = JsonSerializer.Serialize(response);
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogAPIStatus
+Next=LogAPIStatus
+
+[LogAPIStatus]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+
+[LogRequestResponse]
+type=Log
+var=RequestBody,ResponseBody
+
+[CheckPostponementConfResult]
+type=branch
+var=CT_ResultCode
+0=StatE_SuccessfulDeferral
+Next=DeferralNotGranted
+
+[StatE_SuccessfulDeferral]
+type=log
+logmsg="Deferral Succesful"
+
+[PlayDeferralMessage]
+type=play
+TTSString="Your deferral has been granted. Your new reporting date is"
+msgstring=CT_SelectedDate%"|D|ddd mmm dd yyyy"
+Next=TestComplete
+
+[DeferralNotGranted]
+type=play
+TTSString="Your deferral request was not granted. The reason is"
+msgstring=CT_ResultMessage%"|C"
+Next=TestComplete
 
 !======================================
 ! Call Control API Tests
@@ -309,6 +469,11 @@ type=Log
 type=Play
 ttsstring="Verifying Neumo API connectivity. Please wait."
 
+[GetNeumoVars]
+type=VariableManager
+VarList="CT_JurorID,CT_DOB,CT_SelectedDate"
+OnError=VmError
+
 !======================================
 ! Ping endpoint
 [PingRestApiCall]
@@ -338,7 +503,7 @@ Next=PingLogStatus
 
 [PingLogStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,ApiJurorInformation,ApiStatus,ApiErrorCode
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus,ApiErrorCode
 
 [CheckPingStatus]
 type=play
@@ -352,11 +517,6 @@ ttsstring="Getting Juror information. Please wait."
 type=Play
 ttsstring="Testing Get Juror Info API. Please wait."
 
-[SetJurorInfoRequest]
-type=ChangeVariable
-JurorId="000032283"
-JurorDOB="01011961"
-
 [NeumoGetJurorInfoApiCall]
 type=RestApi
 Method=POST
@@ -368,8 +528,8 @@ RequestScript="""
     var requestBody = new {
         userId = vars["NeumoUserId"],
         password = vars["NeumoPassword"],
-        jurorID = vars["JurorId"],
-        dob = vars["JurorDOB"]
+        jurorID = vars["CT_JurorID"],
+        dob = vars["CT_DOB"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
@@ -386,6 +546,7 @@ var testDate=vars["ScheduledDate"];
 // Root level
 vars["CT_ResultCode"]    = root.TryGetProperty("status",    out var status)    ? status.GetString()    ?? "" : "";
 vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+vars["rawJsonResponse"] = JsonSerializer.Serialize(root);
 
 // jurorInformation block
 if (root.TryGetProperty("jurorInformation", out var juror))
@@ -541,7 +702,7 @@ RequestScript="""
     var requestBody = new {
         userId = vars["NeumoUserId"],
         password = vars["NeumoPassword"],
-        jurorID = vars["JurorId"]
+        jurorID = vars["CT_JurorID"]
     };
     return JsonSerializer.Serialize(requestBody);
 """
@@ -550,20 +711,52 @@ ResponseScript="""
     var root = JsonDocument.Parse(response).RootElement;
     
     // Root level
-    vars["ApiStatus"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
-    vars["ApiErrorCode"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
+    vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
     
     // jurorInformation block
     if (root.TryGetProperty("jurorInformation", out var jurorInformation))
     {
-        vars["PostponeEligible"] = jurorInformation.TryGetProperty("postponeEligible", out var v) ? v.GetString() ?? "" : "";
-        vars["PostponeIneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
+        vars["CT_EligibleToPostpone"] = jurorInformation.TryGetProperty("postponeEligible", out var v) 
+            ? (string.Equals(v.GetString(), "Yes", StringComparison.OrdinalIgnoreCase) ? "1" : "0") 
+            : "0";
+        vars["CT_IneligibleReason"] = jurorInformation.TryGetProperty("postponeIneligibleReason", out v) ? v.GetString() ?? "" : "";
         
         if (jurorInformation.TryGetProperty("calculatedPostponeDates", out var postponementDates))
         {
-            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 ? postponementDates[0].GetString() ?? "" : "";
-            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 ? postponementDates[1].GetString() ?? "" : "";
-            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 ? postponementDates[2].GetString() ?? "" : "";
+            // Convert date from MMddyyyy format to ISO8601 format
+            vars["PostponeDate1"] = postponementDates.GetArrayLength() > 0 && 
+                postponementDates[0].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[0].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt1)
+                ? dt1.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
+                
+            vars["PostponeDate2"] = postponementDates.GetArrayLength() > 1 && 
+                postponementDates[1].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[1].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt2)
+                ? dt2.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
+                
+            vars["PostponeDate3"] = postponementDates.GetArrayLength() > 2 && 
+                postponementDates[2].GetString()?.Length == 8 &&
+                DateTime.TryParseExact(
+                    postponementDates[2].GetString(),
+                    "MMddyyyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out DateTime dt3)
+                ? dt3.ToString("yyyy-MM-ddTHH:mm:ss")
+                : "";
         }
     }
 """
@@ -575,7 +768,95 @@ Next=LogPostponeApiCallStatus
 
 [LogPostponeApiCallStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,JurorInformation,ApiStatus
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus,rawJsonResponse
+
+[LogPostponeInfo]
+type=Log
+Var=CT_EligibleToPostpone,CT_PostponeIneligibleReason,PostponeDate1,PostponeDate2,PostponeDate3
+
+[CheckPostponeEligibility]
+type=Branch
+Var=CT_EligibleToPostpone
+true=PostponeEligibleMenu
+"Yes"=PostponeEligibleMenu
+1=PostponeEligibleMenu
+false=PostponeIneligibleMessage
+"No"=PostponeIneligibleMessage
+0=PostponeIneligibleMessage
+
+[PostponeIneligibleMessage]
+type=Play
+ttsstring="You are not eligible to postpone. Returning to main menu."
+Next=RestTestMenu
+
+[PostponeEligibleMenu]
+type=Menu
+ttsstring="You are eligible to postpone. To select a new date, press 1 for"
+msgstring=PostponeDate1%"|D|ddd mmm dd yyyy"
+ttsstring="2 for"
+msgstring=PostponeDate2%"|D|ddd mmm dd yyyy"
+ttsstring="or 3 for"
+msgstring=PostponeDate3%"|D|ddd mmm dd yyyy"
+ttsstring="To return to the main menu, press 9."
+OnKey1=SetDeferral1
+OnKey2=SetDeferral2
+OnKey3=SetDeferral3
+OnKey9=RestTestMenu
+
+[SetDeferral1]
+type=ChangeVariable
+CT_SelectedDate=PostponeDate1
+Next=ExecutePostponementConfirmation2
+
+[SetDeferral2]
+type=ChangeVariable
+CT_SelectedDate=PostponeDate2
+Next=ExecutePostponementConfirmation2
+
+[SetDeferral3]
+type=ChangeVariable
+CT_SelectedDate=PostponeDate3
+Next=ExecutePostponementConfirmation2
+
+[ExecutePostponementConfirmation2]
+type=RestApi
+Method=POST
+Url=PostponementConfirmationEndpoint
+RequestScript="""
+    using System.Text.Json;
+    // Convert CT_SelectedDate from ISO8601 format to MMddyyyy format
+    string selectedDateFormatted = "";
+    if (!string.IsNullOrEmpty(vars["CT_SelectedDate"]) &&
+        DateTime.TryParse(vars["CT_SelectedDate"], out DateTime parsedDate))
+    {
+        selectedDateFormatted = parsedDate.ToString("MMddyyyy");
+    }
+    var requestBody = new {
+        userId = vars["NeumoUserId"],
+        password = vars["NeumoPassword"],
+        jurorID = vars["CT_JurorID"],
+        postponedDate = selectedDateFormatted
+    };
+    vars["requestBody"] = JsonSerializer.Serialize(requestBody);
+    return JsonSerializer.Serialize(requestBody);
+"""
+ResponseScript="""
+    using System.Text.Json;
+    var root = JsonDocument.Parse(response).RootElement;
+    vars["rawJsonResponse"] = JsonSerializer.Serialize(root);
+    vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
+    vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["rawJsonResponse"] = JsonSerializer.Serialize(response);
+"""
+StatusCodeVar=ApiStatusCode
+SuccessVar=ApiSuccess
+ErrorVar=ApiError
+OnError=LogAPIStatus
+Next=LogPostponeApiCallStatus2
+
+[LogPostponeApiCallStatus2]
+type=Log
+Var=ApiStatusCode,ApiSuccess,ApiError,ApiStatus,RequestBody,rawJsonResponse
 
 Next=RestTestMenu
 

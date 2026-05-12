@@ -36,7 +36,7 @@ OnScriptError=HangupCall
 AllowOnDisconnect=1
 LogTrace=1
 
-[LogScriptVersion260422_1]
+[LogScriptVersion260511_1]
 type=log
 
 !========================================
@@ -1923,12 +1923,13 @@ RequestScript="""
             new { questionId = "BioForm_IVR_1", value = vars["BQ1Answer"] }
         }
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
-    
+    vars["ResponseBody"] = JsonSerializer.Serialize(root);
     // Root level
     vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
     vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
@@ -1943,11 +1944,18 @@ StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
 OnError=LogProcessBioFormError
+Next=LogAPIResult_ProcessBioForm
+
+[LogAPIResult_ProcessBioForm]
+type=log
+var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
 Next=CheckAPIResult_ProcessBioForm
 
 [CheckAPIResult_ProcessBioForm]
 type=Branch
 var=ApiSuccess
+true=U_CheckBioInfoResult
+Next=LogProcessBioFormError
 
 [LogProcessBioFormError]
 type=log
