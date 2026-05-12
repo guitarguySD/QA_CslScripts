@@ -82,12 +82,17 @@ tvar6=5
 ! Test 1 - set variable to string
 [StartTest1]
 type=play
-TTSString="Change Variable block test, version 2"
+TTSString="Version 3"
 TTSString="Test one, set variable to a string"
 
 [Test1]
 type=ChangeVariable
 TestVar1="Sonant"
+
+[LogTest1]
+type=log
+var=TestVar1,Expected1
+Next=CheckTest1Result
 
 [CheckTest1Result]
 type=branch
@@ -97,12 +102,12 @@ Next=Fail01
 
 [Pass01]
 Type=play
-TTSString="Pass. Variable correctly set to New Value"
+TTSString="Test 1 Pass. "
 Next=StartTest2
 
 [Fail01]
 type=play
-TTSString="Fail. Variable not set to correct value"
+TTSString="Test 1 Fail."
 
 [Fail01Log]
 type=log
@@ -127,12 +132,12 @@ Next=Fail2
 
 [Pass2]
 Type=play
-TTSString="Pass. Variable correctly set to Sonant from another variable"
+TTSString="Test 2 Pass. "
 Next=StartTest3
 
 [Fail2]
 type=play
-TTSString="Fail. Variable not set to correct value"
+TTSString="Test 2 Fail."
 
 [Fail2Log]
 type=log
@@ -157,12 +162,12 @@ Next=Fail3
 
 [Pass3]
 Type=play
-TTSString="Pass. Variable correctly set to empty string"
+TTSString="Test 3 Pass. "
 Next=StartTest4
 
 [Fail3]
 type=play
-TTSString="Fail. Variable not set to empty string"
+TTSString="Test 3 Fail. "
 
 [Fail3Log]
 type=log
@@ -187,12 +192,12 @@ Next=Fail4
 
 [Pass4]
 type=play
-TTSString="Pass. Append string succeeded."
+TTSString="Test 4 Pass. "
 Next=StartTest5
 
 [Fail4]
 type=play
-TTSString="Fail, append string failed. "
+TTSString="Test 4 Fail. "
 
 [LogFail4]
 type=log
@@ -217,12 +222,12 @@ Next=Fail5
 
 [Pass5]
 type=play
-TTSString="Pass. Increment succeeded."
+TTSString="Test 5 Pass. "
 Next=StartTest6
 
 [Fail5]
 type=play
-TTSString="Fail. Check the log file"
+TTSString="Test 5 Fail."
 
 [LogFail5]
 type=log
@@ -247,12 +252,12 @@ Next=Fail6
 
 [Pass6]
 type=play
-TTSString="Pass. Decrement succeeded."
+TTSString="Test 6 Pass. "
 Next=StartTest7
 
 [Fail6]
 type=play
-TTSString="Fail. check the log file "
+TTSString="Test 6 Fail. "
 
 [LogFail6]
 type=log
@@ -277,12 +282,12 @@ Next=Fail7
 
 [Pass7]
 type=play
-TTSString="Pass. String not changed"
+TTSString="Test 7 Pass. "
 Next=StartTest8
 
 [Fail7]
 type=play
-TTSSTring="Fail. String corrupted"
+TTSString="Test 7 Fail. "
 Next=StartTest8
 
 [StartTest8]
@@ -338,37 +343,38 @@ Next=Fail8_6
 
 [PassTest8]
 type=play
-TTSString="Pass. All variables updated in one block."
+TTSString="Test 8 All Passed. "
 Next=EndCall
 
 [Fail8_1]
 type=play
-TTSString="Fail 8-1"
-Next=Endcall
+TTSString="Test 8.1 Fail. "
+
+Next=EndCall
 
 [Fail8_2]
 type=play
-TTSString="Fail 8-2"
+TTSString="Test 8.2 Fail."
 Next=Endcall
 
 [Fail8_3]
 type=play
-TTSString="Fail 8-3"
+TTSString="Test 8.3 Fail."
 Next=Endcall
 
 [Fail8_4]
 type=play
-TTSString="Fail 8-4"
+TTSString="Test 8.4 Fail."
 Next=Endcall
 
 [Fail8_5]
 type=play
-TTSString="Fail 8-5"
+TTSString="Test 8.5 Fail."
 Next=Endcall
 
 [Fail8_6]
 type=play
-TTSString="Fail 8-6"
+TTSString="Test 8.6 Fail."
 Next=Endcall
 
 
