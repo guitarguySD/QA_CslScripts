@@ -246,6 +246,8 @@ REPORTING_WEEK_CUTOFF_HOUR = 18
 ONCALL_START_HOUR = 18
 ONCALL_END_HOUR = 10 
 FTA_CUTOFF_HOUR = 11
+RequestBody=""
+ResponseBody=""
 
 ! BioInfo and Qualification Question variables
 Q1Answer=""
@@ -436,6 +438,7 @@ RequestScript="""
         userId = vars["NeumoUserId"],
         password = vars["NeumoPassword"]
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
@@ -443,6 +446,7 @@ ResponseScript="""
     var root = JsonDocument.Parse(response).RootElement;
     vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
     vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["ResponseBody"] = response;
 """
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
@@ -452,7 +456,7 @@ Next=LogPingStatus
 
 [LogPingStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage,RequestBody,ResponseBody
 
 [CheckPingStatus]
 type=branch
@@ -835,7 +839,6 @@ var=CT_JurorID,CT_DOB,GetJurorInfoEndpoint
 type=RestApi
 Method=POST
 url=GetJurorInfoEndpoint
-!ContentType="application/json"
 RequestScript="""
     using System.Text.Json;
     var requestBody = new {
@@ -844,6 +847,7 @@ RequestScript="""
         jurorID = vars["CT_JurorId"],
         dob = vars["CT_DOB"]
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
@@ -854,6 +858,7 @@ var ONCALL_END_HOUR = vars["OnCall_End_Hour"] != "" ? int.Parse(vars["OnCall_End
 var FTA_CUTOFF_HOUR = vars["Fta_Cutoff_Hour"] != "" ? int.Parse(vars["Fta_Cutoff_Hour"]) : 11; // Default to 11 AM if not set
 
 var root = JsonDocument.Parse(response).RootElement;
+vars["ResponseBody"] = response;
 var scheduledDate = "";
 // Root level
 vars["CT_ResultCode"]    = root.TryGetProperty("status",    out var status)    ? status.GetString()    ?? "" : "";
@@ -935,7 +940,6 @@ if (root.TryGetProperty("jurorInformation", out var juror))
             now > startOfWeek ? 1 : 0;
     }
 
-    //vars["InReportingWeekCode"] = inReportingWeekResult.ToString();
     vars["InReportingWeek"] = inReportingWeekResult.ToString();
 
     // Determine if currently in on-call call-in window (6 PM - 10 AM)
@@ -957,7 +961,7 @@ Next=LogGetJurorInfoApiCallStatus
 
 [LogGetJurorInfoApiCallStatus]
 type=Log
-Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+Var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage,RequestBody,ResponseBody
 
 [LogGetJurorInfo]
 type=log
@@ -976,7 +980,7 @@ Next=LogApiError
 
 [LogApiError]
 type=log
-var=CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess
+var=CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess,RequestBody,ResponseBody
 Next=StatE_Sorry
 
 !--------------------------------------------------
@@ -1037,6 +1041,7 @@ Next=CheckIfFirstRetrival
 type=branch
 var=FirstRetrieval
 0=CallerDisposition
+1=SetFirstRetrievalFalse
 Next=SetFirstRetrievalFalse
 
 [SetFirstRetrievalFalse]
@@ -1085,6 +1090,7 @@ RequestScript="""
         password = vars["NeumoPassword"],
         jurorID = vars["CT_JurorID"]
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
@@ -1094,6 +1100,7 @@ ResponseScript="""
     // Root level
     vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
     vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
+    vars["ResponseBody"] = response;
     
     // jurorInformation block
     if (root.TryGetProperty("jurorInformation", out var jurorInformation))
@@ -1144,14 +1151,23 @@ ResponseScript="""
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
-OnError=LogApiError
+OnError=LogPostponementApiError
 Next=CheckPostponementInfoAPIResult
 
 [CheckPostponementInfoAPIResult]
 type=Branch
 var=ApiSuccess
 true=CheckPostponementResult
-Next=LogApiError ! Error path
+Next=LogPostponementApiError
+
+[LogPostponementApiError]
+type=log
+var=CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess,RequestBody,ResponseBody
+
+[PlayPostponementApiError]
+type=play
+ttsstring="There was a problem checking postponement eligibility. Please try again later. We are returning you to the main menu."
+Next=JurorMenu
 
 [CheckPostponementResult]
 type=branch
@@ -1205,10 +1221,6 @@ CT_RequestType="Excuse"
 type=RestApi
 Method=POST
 Url=CheckExcuseExemptEndpoint
-AuthType=Basic
-AuthUsername={NeumoUserId}
-AuthPassword={NeumoPassword}
-ContentType=application/json
 TimeoutSeconds=30
 RequestScript="""
     using System.Text.Json;
@@ -1219,11 +1231,13 @@ RequestScript="""
         jurorID = vars["CT_JurorID"],
         requestType = vars["CT_requestType"]
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(request);
     return JsonSerializer.Serialize(request);
 """
 ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
+    vars["ResponseBody"] = response;
     vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
     vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
     
@@ -1264,12 +1278,12 @@ Next=CheckExcuseExemptAPIResult
 type=Branch
 var=ApiSuccess
 true=CheckExcuseExemptResult
-Next=logCheckExcuseExemptApiError
+Next=LogCheckExcuseExemptApiError
 
 ! On failure, just log and set excuse ineligible
 [LogCheckExcuseExemptApiError]
 type=Log
-var=ApiSuccess,ApiError,ApiStatusCode,CT_ResultCode,CT_ResultMessage
+var=ApiSuccess,ApiError,ApiStatusCode,CT_ResultCode,CT_ResultMessage,RequestBody,ResponseBody
 Next=SetExcusalIneligible
 
 [CheckExcuseExemptResult]
@@ -1612,20 +1626,17 @@ Next=JurorMenu
 [Pool]
 type=log
 logmsg="Pool"
-Next=GenericReportingInfo
+
+[PlayBioIntro]
+type=play
+msg="BioIntro"
 
 [PoolCheckBioInfo]
 type=branch
 var=CT_BioComplete
-true=U_PlayNeedToCompleteBio
-0=U_PlayNeedToCompleteBio	! Start of BioInfo then Qualify
+false=GetBioInfo
+true=QualifyStart
 Next=QualifyStart	! Qualify questions only
-
-[U_PlayNeedToCompleteBio]
-type=play
-msg="NeedToCompleteBioInfo"
-msg="FairAndBalancedJuries"
-Next=GetBioInfo
 
 !--------------------------------------------------
 ! Page 26 - Summoned
@@ -1790,10 +1801,7 @@ type=play
 msg="CurrentlyScheduled"
 msgstring=CT_ScheduledDate%"|D|ddd mmm dd yyyy"
 msg="BeSureToCall"
-msg="ToHearAgain"
-ttsstring="You still need to complete your registration for jury service by answering a few qualification questions."
-Next=
-!Next=JurorMenu
+Next=JurorMenu
 
 !=============================================================
 ! Bio questions and Eligibility verification
@@ -1801,63 +1809,76 @@ Next=
 [GetBioInfo]
 type=log
 
-[SetBioRetryCounter]
-type=changeVariable
-Retrycounter=0
-
-[U_PlayIntro]
-type=play
-!msg="EligibilityIntro"
-!msg="UnqualifiedIntro"
-msg="BioIntro"
+!---------------------------------
+! Get Ethnicity
+!---------------------------------
+[U_GetEthnicityMenu]
+type=menu
+Msg="BioEthnicityMenu"
+OnKey1=U_SetRaceToHispanic
+OnKey2=U_GetRaceMenu
+OnKey3=U_SetRaceNotSpecified
+OnKeyStar=U_GetEthnicityMenu
+OnKeyPound=U_GetEthnicityMenu
 
 
 !---------------------------------
 ! Get Race
 !---------------------------------
-!I - Asian
-!J - Black/African American
-!K - Native American/Native Alaskan
-!L - Hawaiian/Pacific Islander
-!M - White/Caucasian
-!N - Other Race
+!Press 1 for Asian. 
+!Press 2 for Black or African American. 
+!Press 3 for White. 
+!Press 4 for Native American or Alaskan Native. 
+!Press 5 for Native Hawaiian or Pacific Islander. 
+!Press 6 for Two or More Races. 
+!Press 7 if you prefer not to disclose.
 
 [U_GetRaceMenu]
 Type=Menu
 Msg="BioRaceMenu"
-OnKey1=U_SetRaceToBlack
-OnKey2=U_SetRaceToNativeAmerican
-OnKey3=U_SetRaceToAsian
-OnKey4=U_SetRaceToHawaiian
-OnKey5=U_SetRaceToWhite
-OnKey6=U_SetRaceToOther
+OnKey1=U_SetRaceToAsian
+OnKey2=U_SetRaceToBlack
+OnKey3=U_SetRaceToWhite
+OnKey4=U_SetRaceToNativeAmerican
+OnKey5=U_SetRaceToHawaiian
+OnKey6=U_SetRaceToTwoOrMoreRaces
 OnKey7=U_SetRaceNotSpecified
 OnKeyStar=U_GetRaceMenu
 OnKeyPound=U_GetRaceMenu
 
+[U_SetRaceToHispanic]
+Type=ChangeVariable
+BQ1Answer="HL"		! Hispanic or Latino
+Next=U_LogBioAnswers
+
+[U_SetRaceToTwoOrMoreRaces]
+Type=ChangeVariable
+BQ1Answer="M"		! Two or More Races
+Next=U_LogBioAnswers
+
 [U_SetRaceToAsian]
 Type=ChangeVariable
-BQ1Answer="E"		! Asian
+BQ1Answer="A"		! Asian
 Next=U_LogBioAnswers
 
 [U_SetRaceToBlack]
 Type=ChangeVariable
-BQ1Answer="A"		! African American
+BQ1Answer="BNH"		! African American
 Next=U_LogBioAnswers
 
 [U_SetRaceToNativeAmerican]
 Type=ChangeVariable
-BQ1Answer="D"		! Native American
+BQ1Answer="NAAN"		! Native American
 Next=U_LogBioAnswers
 
 [U_SetRaceToHawaiian]
 Type=ChangeVariable
-BQ1Answer="C"		! Hawaiian
+BQ1Answer="NHPI"		! Hawaiian
 Next=U_LogBioAnswers
 
 [U_SetRaceToWhite]
 Type=ChangeVariable
-BQ1Answer="B"		! Caucasion/White
+BQ1Answer="WNH"		! Caucasion/White
 Next=U_LogBioAnswers
 
 [U_SetRaceToOther]
@@ -1867,46 +1888,26 @@ Next=U_LogBioAnswers
 
 [U_SetRaceNotSpecified]
 Type=ChangeVariable
-BQ1Answer=" "		! Not specified
+BQ1Answer="O"		! Not specified
 Next=U_LogBioAnswers
 
-!---------------------------------
-! Get Ethnicity
-!---------------------------------
-[U_GetEthnicityMenu]
-type=menu
-Msg="BioEthnicityMenu"
-OnKey1=U_SetEthnicityToHispanic
-OnKey2=U_SetEthnicityToNonHispanic
-OnKey3=U_SetEthnicityNotSpecified
-OnKeyStar=U_GetEthnicityMenu
-OnKeyPound=U_GetEthnicityMenu
-
-[U_SetEthnicityToHispanic]
-Type=ChangeVariable
-BQ13Answer="H"
-Next=U_LogBioAnswers
-
-[U_SetEthnicityToNonHispanic]
-type=changevariable
-BQ13Answer="B"
-Next=U_LogBioAnswers
-
-[U_SetEthnicityNotSpecified]
-type=changevariable
-BQ13Answer=" "
-Next=U_LogBioAnswers
 !------------------------------
 ! Submit BioInfo Answers
 !------------------------------
-
 [U_LogBioAnswers]
 type=log
 var=CT_JurorID,BQ1Answer
 
-[LogBioInfoInput] 
-type=log
-var=CT_JurorID,CT_DOB
+[ResetAPIVarsForBioInfo]
+type=changeVariable
+ApiStatusCode=""
+ApiSuccess=""
+ApiError=""
+CT_ResultCode=""
+CT_ResultMessage=""
+RequestBody=""
+ResponseBody=""
+Next=U_ExecuteUpdateBioInfo
 
 [U_ExecuteUpdateBioInfo]
 type=RestApi
@@ -1948,7 +1949,7 @@ Next=LogAPIResult_ProcessBioForm
 
 [LogAPIResult_ProcessBioForm]
 type=log
-var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage
+var=ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage,RequestBody,ResponseBody
 Next=CheckAPIResult_ProcessBioForm
 
 [CheckAPIResult_ProcessBioForm]
@@ -2007,18 +2008,14 @@ Next=GenericReportingInfo
 
 [U_HalfwayDone]
 type=play
-msg="HalfwayDone"
+!msg="HalfwayDone"
+msg="Silence"
 
 !=================================================
 ! Qualification Questionnaire
 !=================================================
 [QualifyStart]
 Type=log
-
-[QualifyInfo]
-type=Play
-TTSString="You will now be asked a series of questions to determine your eligibility for jury service. Please answer each question by pressing the corresponding number on your phone keypad. If you do not know the answer to a question, please press 0."
-Next=U_Question1
 
 [UnqualifiedInterviewRetry]
 type=log
@@ -2220,12 +2217,13 @@ RequestScript="""
         new { questionId = "Qualification_IVR_5", value = vars["Q5Answer"] == "1" ? "Yes" : "No" }
         }
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
     using System.Text.Json;
     var root = JsonDocument.Parse(response).RootElement;
-    
+    vars["ResponseBody"] = JsonSerializer.Serialize(root);
     // Root level
     vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
     vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
@@ -2395,6 +2393,7 @@ var=CT_JurorState
 "Alternate"=SetServingOptions
 "Available"=SetPoolOptions
 "Disqualified"=SetServiceEndedOptions
+"Permanent Disqualified"=SetServiceEndedOptions
 "Excused"=SetServiceEndedOptions
 "Exempt"=SetServiceEndedOptions
 "Juror"=SetServingOptions
@@ -2418,6 +2417,10 @@ Next=LogJurorMenuStatusError
 [LogJurorMenuStatusError]
 type=log
 var=CT_JurorID,CT_JurorState
+
+[PlayProblemWithStatus]
+type=play
+ttsstring="I'm sorry, there is a problem with your juror status. Please hold for assistance."
 Next=SetScreenJurorMenuError
 
 [SetScreenJurorMenuError]
@@ -2538,7 +2541,7 @@ type=ChangeVariable
 type=branch
 var=AllowDisqualifications
 0=SetNoDisqualifications
-Next=JurorMenuBlock
+Next=CheckGlobalExcusals
 
 [SetNoDisqualifications]
 type=changeVariable
@@ -2564,7 +2567,7 @@ Next=JurorMenuBlock
 [JurorMenuBlock] 
 type=Recognize
 PromptMsg="Silence"
-PromptMsgDTMF="JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
+PromptMsgDTMF="JurorMenuIntro","JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
 OnKey1=StatE_RequestDeferral
 OnKey2=StatE_FAQs
 OnKey3=StatE_RequestExcusals
@@ -2708,6 +2711,7 @@ RequestScript="""
         jurorID = vars["CT_JurorID"],
         selectedDate = selectedDateFormatted
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
@@ -2715,6 +2719,7 @@ ResponseScript="""
     var root = JsonDocument.Parse(response).RootElement;
     vars["CT_ResultCode"] = root.GetProperty("status").GetString() ?? "";
     vars["CT_ResultMessage"] = root.GetProperty("errorCode").GetString() ?? "";
+    vars["ResponseBody"] = response;
 """
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
@@ -2948,6 +2953,7 @@ RequestScript="""
         reasonCode = vars["CT_ReasonCode"],
         requestType = vars["CT_RequestType"]
     };
+    vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
 """
 ResponseScript="""
@@ -2955,6 +2961,7 @@ ResponseScript="""
     var root = JsonDocument.Parse(response).RootElement;
     
     // Root level
+    vars["ResponseBody"] = JsonSerializer.Serialize(root);
     vars["CT_ResultCode"] = root.TryGetProperty("status", out var status) ? status.GetString() ?? "" : "";
     vars["CT_ResultMessage"] = root.TryGetProperty("errorCode", out var errorCode) ? errorCode.GetString() ?? "" : "";
     
@@ -2974,7 +2981,7 @@ Next=CheckAPIResult_ProcessExcusal
 
 [LogProcessExcusalError]
 type=log
-var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess
+var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess,RequestBody,ResponseBody
 Next=StatE_Sorry
 
 ! First check status of API call
@@ -2986,7 +2993,7 @@ Next=LogApiError_ProcessExcusal
 
 [LogApiError_ProcessExcusal]
 type=log
-var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess
+var=CT_JurorID,CT_ResultCode,CT_ResultMessage,ApiStatusCode,ApiError,ApiSuccess,RequestBody,ResponseBody
 Next=StatE_Sorry
 
 [CheckProcessExcusalRetrieveResult]
