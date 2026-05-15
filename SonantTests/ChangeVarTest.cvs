@@ -78,11 +78,19 @@ tvar4=""
 tvar5=5
 tvar6=5
 
+! Test 9
+TestString9="This is a string"
+TestVar9=5
+Expected9=6
+string1="This is a string"
+string2="This is another string"
+string3="This is a string"
+
 !================================
 ! Test 1 - set variable to string
 [StartTest1]
 type=play
-TTSString="Version 3"
+TTSString="Version 7"
 TTSString="Test one, set variable to a string"
 
 [Test1]
@@ -344,39 +352,75 @@ Next=Fail8_6
 [PassTest8]
 type=play
 TTSString="Test 8 All Passed. "
-Next=EndCall
+Next=StartTest9
 
 [Fail8_1]
 type=play
 TTSString="Test 8.1 Fail. "
-
-Next=EndCall
+Next=StartTest9
 
 [Fail8_2]
 type=play
 TTSString="Test 8.2 Fail."
-Next=Endcall
+Next=StartTest9
 
 [Fail8_3]
 type=play
 TTSString="Test 8.3 Fail."
-Next=Endcall
+Next=StartTest9
 
 [Fail8_4]
 type=play
 TTSString="Test 8.4 Fail."
-Next=Endcall
+Next=StartTest9
 
 [Fail8_5]
 type=play
 TTSString="Test 8.5 Fail."
-Next=Endcall
+Next=StartTest9
 
 [Fail8_6]
 type=play
 TTSString="Test 8.6 Fail."
-Next=Endcall
+Next=StartTest9
 
+!==============================
+! Increment test
+[StartTest9]
+type=play
+TTSString="Test nine, increment a variable"
+
+[LogTest9Vars]
+type=log
+var=TestString9,string1,string2,string3,TestVar9
+
+[Test9]
+type=changeVariable
+TestString9="This is another string"
+string1="string1"
+string2="string2"
+string3="string3"
+Increment=TestVar9
+
+[CheckTest9Result]
+type=branch
+var=TestVar9
+Expected9=Pass9
+Next=Fail9
+
+[Pass9]
+type=play
+TTSString="Test 9 Pass. "
+Next=EndCall
+
+[Fail9]
+type=play
+TTSString="Test 9 Fail."
+
+[LogFail9]
+type=log
+var=TestVar9, Expected9, TestString9
+Next=EndCall
 
 !=============================
 [ExitOnMaxCallSec]

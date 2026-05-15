@@ -36,8 +36,9 @@ OnScriptError=HangupCall
 AllowOnDisconnect=1
 LogTrace=1
 
-[LogScriptVersion260511_1]
-type=log
+[LogScriptVersion260514_1]
+type=play
+ttsstring="Script version 16"
 
 !========================================
 ! Define Variables
@@ -68,6 +69,7 @@ TestPassword=""
 TimeoutRetryCounter=0
 TransferDialString=""
 CallDateTime=""
+ACDFailsafeCounter=0
 
 ! Outbound Reminder Call Variables
 ApplicationCallType=""
@@ -999,7 +1001,6 @@ var=CT_ResultMessage
 "IVR_ERR_002"=StatE_DOBMismatch
 "IVR_ERR_003"=StatE_SystemError
 "IVR_ERR_004"=StatE_SystemError
-"IVR_ERR_004"=StatE_SystemError
 "IVR_ERR_005"=StatE_SystemError
 "IVR_ERR_006"=StatE_SystemError
 "IVR_ERR_009"=StatE_RecordNotFound
@@ -1747,41 +1748,15 @@ var=inReportingWeek
 [CheckCallinWindowOnCall]
 type=branch
 var=inCallinWindow
-!0=GenericReportingInfo
-0=CallbackTonightAfter5
-1=OnCallIsServiceEnded
+0=GenericReportingInfo
+1=PlayCurrentlyOnCall
 
-! This is a completely non-standard use of the OnCall status for Douglas County only! 
-! For Douglas, OnCall is Service Ended
-[OnCallIsServiceEnded]
+[PlayCurrentlyOnCall]
 type=play
-msg="ServiceEnded"
+msg="CurrentlyOnCall"
+msg="OnCallCallback"
 msg="ToHearAgain"
-
-[DouglasSpecial]
-type=changeVariable
-CT_JurorState="Completed"
 Next=JurorMenu
-
-! This is the standard code for OnCall, not used here
-![InReportingWeekCheck2]
-!type=branch
-!var=inReportingWeek
-!1=CheckCallinWindowOnCall
-!0=GenericReportingInfo
-
-![CheckCallinWindowOnCall]
-!type=branch
-!var=inCallinWindow
-!0=GenericReportingInfo
-!1=PlayCurrentlyOnCall
-
-![PlayCurrentlyOnCall]
-!type=play
-!msg="CurrentlyOnCall"
-!msg="OnCallCallback"
-!msg="ToHearAgain"
-
 
 !----------------------------------
 ! Callback after 5PM tonight
@@ -2072,6 +2047,9 @@ Q2Answer="0"
 DisqReason2="QDisqualEnglish"
 DisqInfo2="QEnglishFollowup"
 Increment=DisqualifyingAnswersCount
+
+[IncrementQ2Followup]
+type=changeVariable
 Increment=DisqualFollowupCount
 Next=U_Question3
 
@@ -2093,8 +2071,11 @@ type=changeVariable
 Q3Answer="0"
 DisqReason3="QDisqualMental"
 DisqInfo3="QMentalFollowup"
-Increment=DisqualFollowupCount
 Increment=DisqualifyingAnswersCount
+
+[IncrementQ3Followup]
+type=changeVariable
+Increment=DisqualFollowupCount
 Next=U_Question4
 
 [U_Question4]
@@ -2116,6 +2097,9 @@ Q4Answer="0"
 DisqReason4="DisqualCitizen"
 DisqInfo4=""
 Increment=DisqualifyingAnswersCount
+
+[IncrementQ4Followup]
+type=changeVariable
 Increment=DisqualFollowupCount
 Next=U_Question5
 
@@ -2138,6 +2122,9 @@ Q5Answer="0"
 DisqReason5="QDisqualResident"
 DisqInfo5="QResidentFollowup"
 Increment=DisqualifyingAnswersCount
+
+[IncrementQ5Followup]
+type=changeVariable
 Increment=DisqualFollowupCount
 Next=U_SubmitQualificationResponses
 
@@ -2164,9 +2151,6 @@ msg=DisqReason2
 msg=DisqReason3
 msg=DisqReason4
 msg=DisqReason5
-msg=DisqReason6
-msg=DisqReason7
-msg=DisqReason8
 
 [BranchOnFollowupCount]
 type=Branch
@@ -2177,13 +2161,36 @@ OnAboveRange=PlayDisqualFollowupInfo
 OnBelowRange=PenaltyOfPerjuryMenu
 
 [PlayDisqualFollowupInfo]
-type=play
+type=Log
+var=CT_JurorID,DisqInfo1,DisqInfo2,DisqInfo3,DisqInfo4,DisqInfo5
+
+![PlayDisqFollowupInfo]
+!type=Play
+!msg=DisqInfo1
+!msg=DisqInfo2
+!msg=DisqInfo3
+!msg=DisqInfo4
+!msg=DisqInfo5
+
+[PlayDisqInfoFollowup2]
+type=Play
 msg=DisqInfo1
+
+[PlayDisqFollowup2]
+type=Play
 msg=DisqInfo2
+
+[PlayDisqFollowup3]
+type=Play
 msg=DisqInfo3
+
+[PlayDisqFollowup4]
+type=Play
 msg=DisqInfo4
+
+[PlayDisqFollowup5]
+type=Play
 msg=DisqInfo5
-WaitForMsg=true
 Next=PenaltyOfPerjuryMenu
 
 [PenaltyOfPerjuryMenu]
@@ -3415,6 +3422,25 @@ Next=JurorMenu
 [ACDAvailable]
 type=log
 
+[IncrementFailsafe]
+type=changeVariable
+increment=ACDFailsafeCounter
+
+[CheckFailsafeCounter]
+type=branch
+var=ACDFailsafeCounter
+CompareType=Integer
+4=FailsafeTerminate
+OnBelowRange=GetAssistanceAvailableVar
+OnAboveRange=FailsafeTerminate
+Next=FailsafeTerminate
+
+[FailsafeTerminate]
+type=Play
+ttsstring="We are sorry that you're having problems. No one is available to help you, please call back during business hours."
+Next=EndCall
+
+
 [GetAssistanceAvailableVar]
 type=VariableManager
 OnError=LogACDAvailableVMFailure
@@ -3749,12 +3775,64 @@ type=branch
 var=EnteredRecordPassword
 1111=QualifyStart
 1234=PlayMessagesTest
+4444=JurorMenuTest
 RecordPassword=StatE_RecordPhrase
 Next=Goodbye
 
+[JurorMenuTest]
+type=ChangeVariable
+@PlayOption1 = 1
+@PlayOption2 = 1
+@PlayOption3 = 1
+@PlayOption4 = 1
+@PlayOption5 = 1
+@PlayOption6 = 1
+
+[JurorMenuBlockTEST] 
+type=Recognize
+PromptMsg="Silence"
+PromptMsgDTMF="JurorMenuIntro","JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
+OnKey1=StatE_RequestDeferral
+OnKey2=StatE_FAQs
+OnKey3=StatE_RequestExcusals
+OnKey4=StatE_PaymentInfo
+OnKey5=StatE_WorkCertificate
+OnKey6=GetJurorID
+OnKey9=Exit
+OnKey0=SetScreenJurorMenuBlock
+OnKeyStar=JurorMenu
+OnKeyPound=CallerDisposition
+FlushKeys=1
+MaxRetryCount=3
+OnMaxRetries=StatE_Sorry
+ShiftToDTMFMsg="ShiftToDTMF"
+OnDTMFError=StatE_Sorry
+OnOtherResult=StatE_Sorry
+BadKeyMsg="InvalidSelectionDTMF"        
+!TimeoutMsg="Timeout"
+TimeoutMsgDTMF="TimeoutDTMF"
+SuccessMsg="SuccessMsg"
+Next=StatE_Sorry
+
 [PlayMessagesTest]
+type=ChangeVariable
+DisqInfo2="QMentalFollowup"
+DisqInfo3="QEnglishFollowup"
+
+[PlayMessagesTest2]
 type=Play
-msg="JuryIdMenu"
+ttsstring="Test play 1"
+msg="QMentalFollowup"
+ttsstring="Test play 2"
+msg=DisqInfo2
+
+[PlayTest3]
+type=Play
+msg=DisqInfo1
+msg=DisqInfo2
+msg=DisqInfo3
+msg=DisqInfo4
+msg=DisqInfo5
 Next=Goodbye
 
 [StatE_RecordPhrase]

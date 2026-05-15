@@ -1,0 +1,114 @@
+! Change variable test
+! 
+! test 1 - set variable to string
+! test 2 - set var using another var
+! test 3 - set var to empty string
+! test 4 - append var to var
+! test 5 - Increment numeric
+! test 6 - Decrement numeric
+! Test 7 - increment a string
+! Test 8 - multiple change var in same block
+!
+[ScriptSetup]
+Type=SetGlobals
+TTSFilePath="D:\Sonant\VoiceFiles\TTSFiles\"
+Language="English"
+MaxCallSec=90000
+OnMaxCallSec=ExitOnMaxCallSec
+MaxCallErrors=12
+OnMaxCallErrors=ExitOnMaxCallSec
+OnCallDisconnect=CallDisconnectHandler
+OnScriptError=ExitOnMaxCallSec
+AllowOnDisconnect=True
+LogTrace=True
+
+[BlockDefaults]
+Type=SetDefaults
+DefaultIgnoreMissingMsg=True
+DefaultFlushKeys=False
+DefaultBadKeyMsg="InvalidEntry"
+DefaultMaxBadKeys=3
+DefaultOnMaxBadKeys=ExitOnMenuError
+DefaultTimeOutSec=10
+DefaultTimeOutMsg="NoInput"
+DefaultMaxTimeOuts=3
+DefaultOnMaxTimeOuts=ExitOnMenuError
+DefaultOnMaxBadValues=ExitOnMenuError
+DefaultLogCall=True
+DefaultLogMenu=True
+DefaultLogGetDigits=True
+DefaultLogPlay=True
+DefaultTerminator=""
+
+[DefineVariables]
+Type=DefineVars
+MsgVariable=""
+msgText=""
+
+[PlayVersion]
+type=Play
+ttsstring="Version 1.2 "
+
+[GetMessageNumberMenu]
+type=Menu
+ttsstring="For generic message 1, press 1. For generic message 2, press 2. "
+OnKey1=SetGenericMsg1
+OnKey2=SetGenericMsg2
+OnKey9=EndCall
+MaxTimeOuts=20
+
+[SetGenericMsg1]
+type=ChangeVariable
+MsgVariable="GenericMessage1"
+MsgText="This is the first generic message from text to speech."
+Next=PlayMessages
+
+[SetGenericMsg2]
+type=ChangeVariable
+MsgVariable="GenericMessage2"
+MsgText="This is the second generic message from text to speech."
+Next=PlayMessages
+
+[PlayMessages]
+type=Play
+ttsstring="This is the message play block."
+msg=MsgVariable
+!msgString=MsgText
+WaitForMsg=TRUE
+Next=GetMessageNumberMenu
+
+!=============================
+[ExitOnMaxCallSec]
+type=log
+next=EndCall
+
+[ExitOnMaxCallErrors]
+type=log
+next=EndCall
+
+[ExitOnScriptError]
+type=log
+next=EndCall
+
+[ExitOnMenuError]
+type=Log
+Next=EndCall
+
+[ExitOnMaxBadKeys]
+type=Log
+Next=EndCall
+
+[CallDisconnectHandler]
+type=log
+Next=EndCall
+
+[EndCall]
+type=log
+
+[EndMessage]
+type=play
+TTSString="Thank you, goodbye. Exiting."
+WaitForMsg=TRUE
+
+[FinalFinalBlock]
+type=Terminate
