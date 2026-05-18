@@ -38,7 +38,7 @@ LogTrace=1
 
 [LogScriptVersion260514_1]
 type=play
-ttsstring="Script version 16"
+ttsstring="Script version 21"
 
 !========================================
 ! Define Variables
@@ -2697,6 +2697,17 @@ Next=ACDAvailable
 type=log
 var=CT_JurorID,CT_SelectedDate
 
+[PostponeResetVars]
+type=changeVariable
+ResponseBody=""
+RequestBody=""
+ApiStatusCode=""
+ApiSuccess=""
+ApiError=""
+CT_ResultCode=""
+CT_ResultMessage=""
+Next=ExecutePostponementConfirmation
+
 [ExecutePostponementConfirmation]
 type=RestApi
 Method=POST
@@ -2716,7 +2727,7 @@ RequestScript="""
         userId = vars["NeumoUserId"],
         password = vars["NeumoPassword"],
         jurorID = vars["CT_JurorID"],
-        selectedDate = selectedDateFormatted
+        postponedDate = selectedDateFormatted
     };
     vars["RequestBody"] = JsonSerializer.Serialize(requestBody);
     return JsonSerializer.Serialize(requestBody);
@@ -2731,14 +2742,28 @@ ResponseScript="""
 StatusCodeVar=ApiStatusCode
 SuccessVar=ApiSuccess
 ErrorVar=ApiError
-OnError=LogPingStatus
-Next=LogPingStatus
+OnError=LogPostponementConfirmationErrorStatus
+Next=CheckPostponementConfResult
 
+[LogPostponementConfirmationErrorStatus]
+type=log
+var=CT_JurorID,ApiStatusCode,ApiSuccess,ApiError,CT_ResultCode,CT_ResultMessage,RequestBody,ResponseBody
+Next=StatE_PostponementError
+
+[StatE_PostponementError]
+type=Log
+logmsg="Postpon Conf API Error"
+
+[PlayPostponementErrorMsg]
+type=play
+ttsstring="I'm sorry, there was a problem processing your postponement request. Please try again later."
+Next=JurorMenu
 
 [CheckPostponementConfResult]
 type=branch
 var=CT_ResultCode
 0=StatE_SuccessfulDeferral
+"OK"=StatE_SuccessfulDeferral
 Next=StatE_DeferralNotGranted
 
 [StatE_SuccessfulDeferral]
@@ -3776,8 +3801,15 @@ var=EnteredRecordPassword
 1111=QualifyStart
 1234=PlayMessagesTest
 4444=JurorMenuTest
+5555=PostponementTest
 RecordPassword=StatE_RecordPhrase
 Next=Goodbye
+
+[PostponementTest]
+type=ChangeVariable
+CT_JurorID="000000940"
+CT_SelectedDate="2026-10-19T00:00:00Z"
+Next=PostponementConfirmation
 
 [JurorMenuTest]
 type=ChangeVariable
