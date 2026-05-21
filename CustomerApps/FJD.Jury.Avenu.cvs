@@ -20,6 +20,7 @@
 ! 03/14/24 - dwg - Added isPastReportingDateFtaCutoff js utility
 ! 09/17/25 - eb  - Douglas clone to CSK
 ! 03/27/26 - dwg - Update for new REST API block, Get Juror info section
+! 05/19/26 - dwg - Known issue Exempt Excuse not implemented. Not in use at FJD. 
 !
 !========================================
 !Setup
@@ -36,9 +37,9 @@ OnScriptError=HangupCall
 AllowOnDisconnect=1
 LogTrace=1
 
-[LogScriptVersion260514_1]
+[PlayScriptVersion]
 type=play
-ttsstring="Script version 21"
+ttsstring="Script version 24"
 
 !========================================
 ! Define Variables
@@ -391,7 +392,7 @@ type=changeVariable
 CT_JurorState="UNKNOWN"
 FirstRetrieval=1 
 
-[ResetEnglishLanguage]
+[SetEnglishLanguage]
 type=SetGlobals
 Language="English"
 
@@ -563,9 +564,14 @@ ACD_RouteName="JuryEs"
 Type=Log
 LogMsg="Spanish"
 
+[SetSpanishLanguage]
+type=SetGlobals
+Language="Spanish"
+
 [NonEnglishJuror]
 Type=play
 msg="NonEnglishJuror"
+msg="QEnglishFollowup"
 
 [NonEnglishJurorMenu]
 type=menu
@@ -643,7 +649,7 @@ Terminator="#"
 MinDigits=0
 MaxDigits=13
 TimeoutSec=6
-MaxTimeouts=0
+MaxTimeouts=3
 OnKeyStar=EnterJuryID
 OnMaxTimeouts=CheckJuryIDLength
 Next=CheckJuryIDLength
@@ -2660,11 +2666,13 @@ msg="Press2"
 msg="For"
 msgstring=postponeDate3%"|D|ddd mmm dd yyyy"
 msg="Press3"
+msg="ReturnMain9"
 msg="HearAgainDTMF"
 msg="SpeakWithAgent"
 OnKey1=SetPostponeDate1
 OnKey2=SetPostponeDate2
 OnKey3=SetPostponeDate3
+OnKey9=JurorMenu
 OnKey0=SetScreenMsgPostponement
 OnKeyStar=SelectDate
 
@@ -3798,53 +3806,8 @@ Next=CompareAdminPassword
 [CompareAdminPassword]
 type=branch
 var=EnteredRecordPassword
-1111=QualifyStart
 1234=PlayMessagesTest
-4444=JurorMenuTest
-5555=PostponementTest
-RecordPassword=StatE_RecordPhrase
 Next=Goodbye
-
-[PostponementTest]
-type=ChangeVariable
-CT_JurorID="000000940"
-CT_SelectedDate="2026-10-19T00:00:00Z"
-Next=PostponementConfirmation
-
-[JurorMenuTest]
-type=ChangeVariable
-@PlayOption1 = 1
-@PlayOption2 = 1
-@PlayOption3 = 1
-@PlayOption4 = 1
-@PlayOption5 = 1
-@PlayOption6 = 1
-
-[JurorMenuBlockTEST] 
-type=Recognize
-PromptMsg="Silence"
-PromptMsgDTMF="JurorMenuIntro","JurorMenu1"|X|1,"JurorMenu2","JurorMenu3"|X|3,"JurorMenu4"|X|4,"JurorMenu5"|X|5,"JurorMenu6"|X|6,"JurorMenuLast"
-OnKey1=StatE_RequestDeferral
-OnKey2=StatE_FAQs
-OnKey3=StatE_RequestExcusals
-OnKey4=StatE_PaymentInfo
-OnKey5=StatE_WorkCertificate
-OnKey6=GetJurorID
-OnKey9=Exit
-OnKey0=SetScreenJurorMenuBlock
-OnKeyStar=JurorMenu
-OnKeyPound=CallerDisposition
-FlushKeys=1
-MaxRetryCount=3
-OnMaxRetries=StatE_Sorry
-ShiftToDTMFMsg="ShiftToDTMF"
-OnDTMFError=StatE_Sorry
-OnOtherResult=StatE_Sorry
-BadKeyMsg="InvalidSelectionDTMF"        
-!TimeoutMsg="Timeout"
-TimeoutMsgDTMF="TimeoutDTMF"
-SuccessMsg="SuccessMsg"
-Next=StatE_Sorry
 
 [PlayMessagesTest]
 type=ChangeVariable
@@ -3867,9 +3830,6 @@ msg=DisqInfo4
 msg=DisqInfo5
 Next=Goodbye
 
-[StatE_RecordPhrase]
-type=log
-Next=Goodbye
 
 !===================================
 ! End Routines

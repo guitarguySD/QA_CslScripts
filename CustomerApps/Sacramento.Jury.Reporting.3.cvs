@@ -47,7 +47,8 @@
 !                  Updated JSI DLLS JNGPCAPI.DLL v8.2.6.005 2/8/2018
 !                  Updated Cobol (yes cobol) dlls in MSSQL/
 !                  Updated SonantJsi.Service.ini to use MSSQL dlls
-!45  2026-04-01 EB Added Russian language experience
+! 45 2026-04-01 EB Added Russian language experience
+! 46 2026-06-12 DG Added additional languages, plus some cleanup 
 !
 [ScriptSetup]
 type=SetGlobals
@@ -407,10 +408,13 @@ type=log
 LogMsg="Group Reporting Available = "%Jury_GroupReportingAvailable
 
 [StartupRecognitionSession]   ! page 003
-Type=StartRecognitionSession
-OnError=LogRecognitionSessionError
-TimeOutMsec=7000
-OnNoSession=CheckOfficeOpen
+type=ChangeVariable
+@RecognizeDtmfMode=1
+
+!Type=StartRecognitionSession
+!OnError=LogRecognitionSessionError
+!TimeOutMsec=7000
+!OnNoSession=CheckOfficeOpen
 !Next=CheckOfficeOpen
 Next=CheckOfficeOpen
 
@@ -444,24 +448,7 @@ Msg="Silence"
 Msg="Greeting"
 Msg="OptionalGreeting"
 Msg="Silence"
-
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-[CheckASRAvailable]   ! page 004
-type=Branch
-var=@RecognizeDtmfMode
-!1=SetModeToDTMF
-0=SetModeToDTMF
-1=SetModeToDTMF
-
-[ASRHelps]
-type=Play
-!Msg="ASRHelps"
-msg="silence"
-next=LanguageCheck
-
-[SetModeToDTMF]
-Type=ChangeVariable
-@RecognizeDtmfMode=1
+Next=LanguageCheck
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 [LanguageCheck]   ! page 05
@@ -474,7 +461,6 @@ var=MaintenanceMode
 type=menu
 !Msg="DataUnavailableContinue"
 msg="DownForMaintenance"
-!OnKey8=ASRCheck
 OnKeyPound=StatE_Admin
 MaxBadKeys=0
 BadKeyMsg="InvalidSelectionDTMF"
@@ -492,29 +478,25 @@ Next=Exit
 [CheckJSIDbDown]
 type=Branch
 var=DbDown
-0=ASRCheck
+0=LanguageMenu
 1=PlayDbDown
 
 [PlayDbDown]
 type=play
 msg="JSIDbDownContinue"
-Next=ASRCheck
 
-[ASRCheck]
-Type=Branch
-var=@RecognizeDtmfMode
-0=ASRPath
 
-[DTMFPath]
+[LanguageMenu]
 Type=Menu
-Msg="EnglishMenuDTMF"
-Msg="LanguageMenuDTMF"
-OnKey1=DBAvailable
-OnKey2=SpanishSelected
-OnKey3=RussianSelected
-OnKey9=SettestJurorid
-OnKey0=DBAvailable		!rr changed while onsite per discussion with Shana (5/21/2010)
-OnKey0=ACDAvailable		!eb Endy requested that callers go straight to operator (3/9/2022)OnKeyPound=StatE_Admin
+Msg="LanguageMenu"
+OnKey1=StatE_English
+OnKey2=StatE_Spanish
+OnKey3=StatE_Ukrainian
+OnKey4=StatE_Russian
+OnKey5=StatE_Dari
+OnKey6=StatE_Punjabi
+OnKey7=StatE_Mandarin
+OnKey0=SetScreenMsgLanguage
 OnKeyPound=StatE_Admin
 MaxBadKeys=2
 BadKeyMsg="InvalidSelectionDTMF"
@@ -526,158 +508,118 @@ OnMaxTimeOuts=DBAvailable
 FlushKeys=True
 Next=DBAvailable
 
-[SettestJurorid]
-type=changevariable
-Jury_JurorID="12345678"
-CallerLanguage="English"
-ACD_RouteName="JuryTraining"
-Next=ACDAvailable
-
-[ASRPath]
-type=Recognize
-PromptMsg="EnglishLanguage","LanguageMenu" 
-PromptMsgDTMF="EnglishMenuDTMF","LanguageMenuDTMF"        
-Grammar="Language.grxml"
-ResultFormat=DigitsorResult
-MisrecognizeMsg="TryAgain"
-BadKeyMsg="InvalidSelectionDTMF"
-HelpMsg="StandardHelp"
-OnKey1=StatE_EnglishDTMF
-OnKey2=StatE_SpanishDTMF
-OnKey3=StatE_RussianDTMF
-OnKey0=SetScreenMsgLanguage
-OnKeyPound=StatE_Admin
-OnResult:English=StatE_EnglishASR !1 
-OnResult:Espanol=StatE_SpanishASR !2 
-OnResult:Russian=StatE_RussianASR
-OnResult:Operator=SetScreenMsgLanguage !0
-OnResult:Repeat=ASRPath
-!ShiftToDTMFMsg="silence"
-MaxRetryCount=1
-OnMaxRetries=DBAvailable
-OnDTMFError=StatE_EnglishDTMF
-SuccessMsg="SuccessMsg" 
-NoInputTimeOutMSec=1500
-ConfidenceThreshold=30
-RecognizeFailureMsg="SpeechRecSystemError"
-Next=DBAvailable
-
 [SetScreenMsgLanguage]
 Type=ChangeVariable
 ScreenMsg="LanguageMenu"
 Next=ACDAvailable
 
-[OnDtmfErrorLanguageCheck]
-type=Play
-Msg="TryAgainDTMF"
-Next=LanguageCheck
-
-[OnOtherResultLanguageCheck]
-type=play
-msg="ShiftToDTMF"
-
-[OnDtmfErrorLanguageCheckShiftDTMF]
-type=ChangeVariable
-@RecognizeDtmfMode=1
-
-[EndRec8]
-type=EndRecognitionSession
-
-[StatE_DTMF8]
+!=======================================
+! ENGLISH
+[StatE_English]
 Type=Log
-LogMsg="Change to DTMF"
-Next=LanguageCheck
+LogMsg="Lang:English"
 
-[StatE_EnglishDTMF]
-Type=Log
-LogMsg="Chose English DTMF"
-
-[SetModeToEnglishDTMF]
-Type=ChangeVariable
-@RecognizeDtmfMode=1
-
-[EndRec8e]
-type=EndRecognitionSession
-Next=SetModeToEnglishLanguage
-
-[StatE_EnglishASR]
-Type=Log
-LogMsg="English ASR"
-
-[SetModeToEnglishLanguage]
+[SetLanguageEnglish]
 type=setglobals
 Language="English"
 Next=DBAvailable
 
-[StatE_SpanishDTMF]
+!=======================================
+! SPANISH
+[StatE_Spanish]
 Type=Log
-LogMsg="Chose Spanish DTMF"
+LogMsg="Spanish"
 
-[SetModeToSpanishDTMF]
-Type=ChangeVariable
-@RecognizeDtmfMode=1
-
-[EndRec8s]
-type=EndRecognitionSession
-Next=SpanishSelected
-
-[StatE_SpanishASR]
-Type=Log
-LogMsg="Chose ASR"
-Next=SpanishSelected
-
-[StatE_RussianDTMF]
-Type=Log
-LogMsg="Chose Spanish DTMF"
-
-[SetModeToRussianDTMF]
-Type=ChangeVariable
-@RecognizeDtmfMode=1
-
-[EndRec8r]
-type=EndRecognitionSession
-Next=RussianSelected
-
-[StatE_RussianASR]
-Type=Log
-LogMsg="Chose ASR"
-Next=RussianSelected
-
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!========================================
-!Spanish Selected
-!========================================
-[SpanishSelected]   ! page 06
-Type=Log
-LogMsg="Calls Spanish"
-
-[SetSpanish]
-type=changevariable
+[SetCallerLanguageSpanish]
+type=changeVariable
 CallerLanguage="Spanish"
 
-[SetToSpanishLanguage]
+[SetLanguageSpanish]
 type=setglobals
 Language="Spanish"
-Next=NE_CheckDBDown
+Next=StatE_NonEnglishCaller
 
-!========================================
-!Russian Selected
-!========================================
-[RussianSelected]   ! page 06
+!=======================================
+! RUSSIAN
+[StatE_Russian]
 Type=Log
-LogMsg="Calls Russian"
+LogMsg="Russian"
 
-[SetRussian]
-type=changevariable
+[SetCallerLanguageRussian]
+type=changeVariable
 CallerLanguage="Russian"
 
-[SetToRussianLanguage]
+[SetLanguageRussian]
 type=setglobals
 Language="Russian"
-Next=NE_CheckDBDown
+Next=StatE_NonEnglishCaller
+
+!======================================
+! Ukrainian
+[StatE_Ukrainian]
+Type=Log
+LogMsg="Ukrainian"
+
+[SetCallerLanguageUkrainian]
+type=changeVariable
+CallerLanguage="Ukrainian"
+
+[SetLanguageUkrainian]
+type=setglobals
+Language="Ukrainian"
+Next=StatE_NonEnglishCaller
+
+!======================================
+! Dari
+[StatE_Dari]
+Type=Log
+LogMsg="Lang:Dari"
+
+[SetCallerLanguageDari]
+type=changeVariable
+CallerLanguage="Dari"
+
+[SetLanguageDari]
+type=setglobals
+Language="Dari"
+Next=StatE_NonEnglishCaller
+
+!======================================
+! Punjabi
+[StatE_Punjabi]
+Type=Log
+LogMsg="Lang:Punjabi"
+
+[SetCallerLanguagePunjabi]
+type=changeVariable
+CallerLanguage="Punjabi"
+
+[SetLanguagePunjabi]
+type=setglobals
+Language="Punjabi"
+Next=StatE_NonEnglishCaller
+
+!======================================
+! Mandarin
+[StatE_Mandarin]
+Type=Log
+LogMsg="Lang:Mandarin"
+
+[SetCallerLanguageMandarin]
+type=changeVariable
+CallerLanguage="Mandarin"
+
+[SetLanguageMandarin]
+type=setglobals
+Language="Mandarin"
+Next=StatE_NonEnglishCaller
 
 !===================================
 ! Non English
+[StatE_NonEnglishCaller]
+type=Log
+logmsg="NonEnglish Caller"
+
 [NE_CheckDBDown]
 type=Branch
 var=DbDown
@@ -701,6 +643,9 @@ OnKey2=NE_GetJurorIdStart
 OnKeyStar=NonEnglishJuror
 OnKeyPound=NonEnglishJurorMenu
 
+!============================================
+! User has chosen to work in English
+!
 [ContinueInEnglish]
 type=play
 msg="NE_ContinueInEnglish"
@@ -709,7 +654,11 @@ WaitForMsg=true
 [RestLanguageToEnglish]
 type=SetGlobals
 Language="English"
-Next=SetModeToEnglishDTMF
+
+[ResetCallerLanguageToEnglish]
+type=changeVariable
+CallerLanguage="English"
+Next=DBAvailable
 
 !=======================================================================
 ! NonEnglish - Get Juror ID
@@ -4993,7 +4942,6 @@ TestModePassword=StatE_TestMode
 !"9438"=Test_StartRNFTest
 "3456"=SelfTest
 !"7335"=Test_SetDBUp
-"7335"=StatE_EnglishDTMF
 "8888"=TestJuryGroupReporting
 Next=Goodbye
 
